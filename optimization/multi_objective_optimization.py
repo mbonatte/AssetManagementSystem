@@ -7,6 +7,8 @@ Created on Sep 21, 2022.
 
 import json
 import numpy as np
+from pathlib import Path
+THIS_FOLDER = Path(__file__).parent.resolve()
 
 from pymoo.algorithms.moo.nsga2 import NSGA2
 
@@ -50,7 +52,7 @@ class Multi_objective_optimization():
         self.problem = problem
 
     def _read_config_file(self):
-        file = 'database/optimization_config.json'
+        file = THIS_FOLDER / 'optimization_config.json'
         with open(file, 'r') as f:
             data = json.load(f)
         self._set_algorithm(data.get('algorithm', None))

@@ -1,0 +1,13 @@
+{
+"algorithm": 
+	{
+	"name": "NSGA2",
+	"pop_size": 1,
+	"eliminate_duplicates": true
+	},
+"termination": 
+	{
+	"name": "n_gen",
+	"n_max_gen": 1
+	}
+}
