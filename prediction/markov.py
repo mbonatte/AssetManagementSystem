@@ -373,34 +373,35 @@ class MarkovContinous():
             Next IC.
 
         """
-        IC_index = int(abs(current_IC-self.best_IC))
+        IC_index = int(abs(current_IC-self.best_IC)) #Do I need to convert to 'int'?
         prob = self.transition_matrix[IC_index]
-        return choices(population=self.list_of_possible_ICs,
+        return choices(population=self.list_of_possible_ICs, #Should I remove the keywords to avoid unnecessary keyword lookups?
                        weights=prob,
                        k=1)[0]
 
     def predict_MC(self, delta_time: int, initial_IC: int) -> np.array:
         """
-        Predict the asset throught time by Monte Carlo approach.
+        Predict the asset throught time using the Monte Carlo approach.
 
         Parameters
         ----------
         delta_time : int
-            DESCRIPTION.
+            Number of time steps.
         initial_IC : int
-            DESCRIPTION.
+            Initial Index Condition (IC).
 
         Returns
         -------
         sample : TYPE
-            DESCRIPTION.
+            Array of predicted ICs.
 
         """
         #sample = [self.get_next_IC(sample[t-1] for t in range(delta_time))]
         sample = np.empty(delta_time, dtype=int)
         sample[0] = initial_IC
+        _get_next_IC = self.get_next_IC  # Cache the method reference for better performance
         for t in range(1, delta_time):
-            sample[t] = self.get_next_IC(sample[t-1])
+            sample[t] = _get_next_IC(sample[t-1])
         return sample
 
     def get_mean_over_time_MC(self, delta_time: int,

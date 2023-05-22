@@ -5,14 +5,15 @@ Created on Sep 21, 2022.
 @e-mail: mbonatte@ymail.com
 """
 
-import numpy as np
 import json
+from typing import List, Dict
 
+import numpy as np
 
 class ActionEffect():
 
-    def set_action_effects(number_of_states, file):
-        actions = file
+    def set_action_effects(number_of_states: int,
+                           actions: Dict):
         action_effects = {}
         # Append a 'Do Nothing' action
         action_effects['DoNothing'] = ActionEffect('DoNothing',

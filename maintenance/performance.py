@@ -25,12 +25,12 @@ class Sample():
 
 
 class Performance():
-    def __init__(self, deterioration_model, maintenance_file):
+    def __init__(self, deterioration_model, maintenance_actions):
         self.deterioration_model = deterioration_model
         self.actions_schedule = {}
         self.action_effects = ActionEffect.set_action_effects(
             deterioration_model._number_of_states,
-            maintenance_file)
+            maintenance_actions)
         self.Q = self.deterioration_model.intensity_matrix
 
         self._number_of_process = 16
@@ -45,26 +45,30 @@ class Performance():
                              sample: list,
                              time: int):
         reduction_factor = 1
+        
         for t in range(time+1):
-            if(sample[t].timeOfReduction-(time-t) > 0
+            
+            if(sample[t].timeOfReduction - (time - t) > 0
                     and sample[t].rateOfReduction < reduction_factor):
                 reduction_factor = sample[t].rateOfReduction
                 self.last_intervention['reduction'] = reduction_factor
-            if(sample[t].timeOfDelay-(time-t) > 0):
+                
+            if(sample[t].timeOfDelay - (time - t) > 0):
                 # there is suppression (P - is identity matrix)
                 reduction_factor = 0
                 self.last_intervention['reduction'] = reduction_factor
                 break
+            
         return reduction_factor
 
     def _choose_randomly_the_next_IC(self, current_IC, transition_matrix):
         population = np.linspace(start=self.deterioration_model.best_IC,
                                  stop=self.deterioration_model.worst_IC,
                                  num=self.deterioration_model._number_of_states,
-                                 dtype=int)
-        IC_index = int(abs(current_IC-self.deterioration_model.best_IC))
+                                 dtype=int) #Should I use 'np.arange'?
+        IC_index = int(abs(current_IC - self.deterioration_model.best_IC)) #Should I remove 'int'?
         prob = transition_matrix[IC_index]
-        return choices(population=population,
+        return choices(population=population, #Remove key words !!!
                        weights=prob,
                        k=1)[0]
 
@@ -147,12 +151,12 @@ class Performance():
 
         asset_condition = np.empty(time_horizon, dtype=int)
         # I still need to get rid off the ´Sample´ class
-        interventions = [Sample() for i in range(time_horizon)]
+        interventions = [Sample() for _ in range(time_horizon)]
         self.last_intervention = {"time": 0,
                                   "duration": 0,
                                   "reduction": 1}
-
         asset_condition[0] = initial_IC
+        ## Cache the method reference for better performance
         for time in range(1, time_horizon):
             action = self.get_action(time)
             if action:
@@ -170,7 +174,7 @@ class Performance():
                          time_horizon: int,
                          initial_IC: int = None,
                          actions_schedule: Dict = {},
-                         number_of_samples=100) -> np.array:
+                         number_of_samples:int = 100) -> np.array:
         """
         Get the mean prediction by Monte Carlo approach.
 
@@ -181,7 +185,7 @@ class Performance():
         initial_IC : int, optional
             The initial condition index. The default is None.
         number_of_samples : TYPE, optional
-            Number of samples in the Monte Carlo. The default is 10.
+            Number of samples in the Monte Carlo. The default is 100.
 
         Returns
         -------
@@ -189,10 +193,13 @@ class Performance():
             Mean performance over time.
 
         """
-        if not initial_IC:
+        if not initial_IC: #if initial_IC is None:
             initial_IC = self.deterioration_model.best_IC
         self._set_actions_schedule(actions_schedule)
+        
         with Pool(processes=self._number_of_process) as p:
+            #pool_results = pool.starmap(self.predict_MC, [(time_horizon, initial_IC)] * number_of_samples)
+            #samples = np.array(pool_results)
             pool_results = [p.apply_async(self.predict_MC,
                                           (
                                               time_horizon,
@@ -201,5 +208,4 @@ class Performance():
                             for _ in range(number_of_samples)]
             samples = [result.get() for result in pool_results]
 
-        return np.mean(samples,
-                       axis=0)  # Mean pear year
+        return np.mean(samples, axis=0)  # Mean pear year
