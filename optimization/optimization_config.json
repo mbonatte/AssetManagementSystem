@@ -2,12 +2,12 @@
 "algorithm": 
 	{
 	"name": "NSGA2",
-	"pop_size": 1,
+	"pop_size": 20,
 	"eliminate_duplicates": true
 	},
 "termination": 
 	{
 	"name": "n_gen",
-	"n_max_gen": 1
+	"n_max_gen": 3
 	}
 }
