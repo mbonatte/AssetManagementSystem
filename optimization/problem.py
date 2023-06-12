@@ -63,7 +63,7 @@ class MyProblem(Problem):
         for ano in actions_schedule:
             action = actions_schedule[ano]
             budget += (self.performance_model.action_effects[action].cost
-                       / (1.0 + self.discount_rate)**ano)
+                       / (1.0 + self.discount_rate)**float(ano))
         return budget
 
     def get_number_of_interventions(self, x):
@@ -80,7 +80,7 @@ class MyProblem(Problem):
         binary_year = binary.reshape(-1, 2)
         actions = {}
         for (year, action) in binary_year:
-            actions[year] = list(self.actions)[action]
+            actions[str(year)] = list(self.actions)[action]
         return dict(sorted(actions.items()))
 
     def _set_actions(self, maintenance_file):
