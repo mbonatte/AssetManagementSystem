@@ -159,7 +159,7 @@ class Performance():
         ## Cache the method reference for better performance
         for time in range(1, time_horizon):
             action = self.get_action(time)
-            if action:
+            if self.action_effects.get(action, None):
                 self.last_intervention['time'] = time
                 self.set_interventions_effect(interventions[time],
                                               self.action_effects[action],
@@ -197,6 +197,10 @@ class Performance():
             initial_IC = self.deterioration_model.best_IC
         self._set_actions_schedule(actions_schedule)
         
+        if self._number_of_process == 1:
+            samples = [self.predict_MC(time_horizon,initial_IC) for _ in range(number_of_samples)]
+            return np.mean(samples, axis=0)  # Mean pear year
+            
         with Pool(processes=self._number_of_process) as p:
             #pool_results = pool.starmap(self.predict_MC, [(time_horizon, initial_IC)] * number_of_samples)
             #samples = np.array(pool_results)
