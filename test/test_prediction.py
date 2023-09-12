@@ -1,6 +1,7 @@
 import unittest
-from markov import MarkovContinous
 import numpy as np
+
+from prediction.markov import MarkovContinous
 
 class TestMarkovContinuous(unittest.TestCase):
 
