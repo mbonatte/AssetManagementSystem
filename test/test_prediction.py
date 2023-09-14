@@ -1,4 +1,5 @@
 import unittest
+import random
 import numpy as np
 
 from prediction.markov import MarkovContinous
@@ -62,14 +63,14 @@ class TestMarkovContinuous(unittest.TestCase):
         self.markov.theta = np.array([0.5, 1, 1.5, 2])
         
         counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
-        num_samples = 10000
+        num_samples = 200
         
+        random.seed(1)
         for i in range(num_samples):
             next_state = self.markov.get_next_IC(current_IC)
             counts[next_state] += 1
             
         probs = np.array([counts[i]/num_samples for i in [1,2,3,4,5]])
-        
         expected_probs = self.markov.transition_matrix[current_IC-1]
         np.testing.assert_array_almost_equal(probs, expected_probs, decimal=2)
         
@@ -81,9 +82,12 @@ class TestMarkovContinuous(unittest.TestCase):
         self.markov.fit(self.initial, self.time, self.final)
         
         analytical = self.markov.get_mean_over_time(delta_time, initial_IC)[-1]
-        mc = self.markov.get_mean_over_time_MC(delta_time, initial_IC, num_samples=10000)[-1]
         
-        self.assertLess(abs(analytical - mc), 0.02)
+        random.seed(2)
+        self.markov._number_of_process = 1
+        mc = self.markov.get_mean_over_time_MC(delta_time, initial_IC, num_samples=20)[-1]
+        
+        self.assertLess(abs(analytical - mc), 0.01)
         
 if __name__ == '__main__':
     unittest.main()

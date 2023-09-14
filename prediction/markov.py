@@ -96,7 +96,9 @@ class MarkovContinous():
         self.best_IC = best_IC
         self.verbose = verbose
         self.optimizer = optimizer
-
+        
+        self._number_of_process = 16
+        
         self._number_of_states = abs(worst_IC - best_IC) + 1
         self._is_transition_crescent = best_IC < worst_IC
         
@@ -551,7 +553,11 @@ class MarkovContinous():
         
         if initial_IC is None:
             initial_IC = self.best_IC
-
+        
+        if self._number_of_process == 1:
+            samples = [self.predict_MC(delta_time + 1,initial_IC) for _ in range(num_samples)]
+            return np.mean(samples, axis=0)  # Mean pear year
+        
         with Pool() as pool:
             results  = [pool.apply_async(self.predict_MC,
                                           (delta_time + 1, initial_IC))
@@ -560,54 +566,3 @@ class MarkovContinous():
             samples = [res.get() for res in results ]
 
         return np.mean(samples, axis=0)
-
-
-if __name__ == "__main__":
-
-    # Example usage and testing  
-    
-    import time
-    markov = MarkovContinous(worst_IC=5,
-                             best_IC=1,
-                             optimizer=True,
-                             verbose=True)
-    
-    # Fit model
-    initial = np.array([1, 1, 2, 3, 4, 5]*1000)
-    t = np.array([1, 2, 3, 4, 5, 5]*1000)
-    final = np.array([1, 2, 3, 4, 5, 5]*1000)
-
-    start = time.time()
-    markov.fit(initial, t, final)
-    print('Time to fit = ',
-          round(time.time()-start, 5),
-          's. The best so far is = 0.61207 s')
-
-    # Validate times
-    start = time.time()
-    markov.get_mean_over_time(delta_time=100)
-    print('Time to get mean (Analytically) = ',
-          round(1000*(time.time()-start), 5),
-          'ms. The best so far is = 0.14114 ms')
-
-    start = time.time()
-    markov.get_mean_over_time_MC(delta_time=100,
-                                 num_samples=1000)
-    print('Time to get mean (Monte Carlo) = ',
-          round(time.time()-start, 5),
-          's. The best so far is = 1.27329 s')
-
-    final_IC = markov.get_mean_over_time(delta_time=10, initial_IC=2)[-1]
-    final_IC_MC = markov.get_mean_over_time_MC(delta_time=10, initial_IC=2,
-                                               num_samples=10000)[-1]
-                                               
-   # Validate predictions
-    final_IC = markov.get_mean_over_time(delta_time=10, initial_IC=2)[-1]
-    final_IC_MC = markov.get_mean_over_time_MC(delta_time=10, initial_IC=2,
-                                               num_samples=10000)[-1]
-    
-    if abs(final_IC - 4.407041166528558) > 1e-4:
-        print("Error in analytical prediction!")
-        
-    if abs(final_IC - final_IC_MC) > 0.015:
-        print("Error between analytical and MC!")
