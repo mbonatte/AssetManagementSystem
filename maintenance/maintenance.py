@@ -3,52 +3,48 @@ Created on Sep 21, 2022.
 
 @author: MauricioBonatte
 @e-mail: mbonatte@ymail.com
+
+maintenance.py - Classes for maintenance actions and effects.
 """
 
-import json
 from typing import List, Dict
-
 import numpy as np
 
 class ActionEffect():
+    """Class for effects of maintenance actions."""
 
-    def set_action_effects(number_of_states: int,
-                           actions: Dict):
-        action_effects = {}
-        # Append a 'Do Nothing' action
-        action_effects['DoNothing'] = ActionEffect('DoNothing',
-                                                    number_of_states)
+    def set_action_effects(number_of_states: int, actions: Dict[str, Dict]
+    ) -> Dict[str, 'ActionEffect']:
+        """Create ActionEffect from dictionary."""
+        
+        effects = {'DoNothing': ActionEffect('DoNothing', number_of_states)}
+        
         for action in actions:
-            action_effect = ActionEffect(action['name'],
-                                            number_of_states)
-            try:
-                action_effect.set_time_of_delay(action['time_of_delay'])
-            except KeyError:
-                pass
-            try:
-                action_effect.set_improvement(action['improvement'])
-            except KeyError:
-                pass
-            try:
-                action_effect.set_time_of_reduction(
-                    action['time_of_reduction'])
-            except KeyError:
-                pass
-            try:
-                action_effect.set_reduction_rate(action['reduction_rate'])
-            except KeyError:
-                pass
-            action_effect.cost = action.get('cost', 0)
-            action_effects[action_effect.name] = action_effect
-        return action_effects
+            effect = ActionEffect(action['name'], number_of_states)
+            
+            for key in ['delay', 'improvement', 'time_of_reduction', 'reduction_rate']:
+                if key in action:
+                    if key == 'delay':
+                        effect.set_time_of_delay(action[key])
+                    if key == 'improvement':
+                        effect.set_improvement(action[key])
+                    if key == 'time_of_reduction':
+                        effect.set_time_of_reduction(action[key])
+                    if key == 'reduction_rate':
+                        effect.set_reduction_rate(action[key])
+            
+            effect.cost = action.get('cost', 0)  
+            effects[effect.name] = effect
+        return effects
 
-    def __init__(self,
-                 name,
-                 number_of_states
-                 ):
+    def __init__(self, name: str, number_of_states: int) -> None:
+        """Initialize ActionEffect."""
+                 
         self.name = name
         self.number_of_states = number_of_states
         self.cost = 0
+        
+        # Effects modeled as triangular distribution
         self.time_of_delay = [[0, 0, 0] for i in range(number_of_states)]
         self.improvement = [[0, 0, 0] for i in range(number_of_states)]
         self.time_of_reduction = [[0, 0, 0] for i in range(number_of_states)]
