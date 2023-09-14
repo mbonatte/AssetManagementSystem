@@ -20,6 +20,15 @@ class TestMarkovContinuous(unittest.TestCase):
                              [0.        , 0.        , 0.        , 0.        , 1.      ]])
         np.testing.assert_array_almost_equal(self.markov.transition_matrix, expected)
         
+    def test_transition_matrix_over_time(self):
+        self.markov.theta = np.array([1, 2, 3, 4]) 
+        expected = np.array([[6.73794700e-03, 6.69254707e-03, 6.64745304e-03, 6.60266286e-03, 9.73319390e-01],
+                             [0.00000000e+00, 4.53999298e-05, 9.01880549e-05, 1.34370559e-04, 9.99730041e-01],
+                             [0.00000000e+00, 0.00000000e+00, 3.05902321e-07, 9.11523501e-07, 9.99998783e-01],
+                             [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 2.06115362e-09, 9.99999998e-01],
+                             [0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
+        np.testing.assert_array_almost_equal(self.markov.transition_matrix_over_time(5), expected)
+        
     def test_likelihood(self):
         initial = np.array([1,2,3,4,5])
         time = np.array([1,2,3,4,5])
@@ -37,31 +46,42 @@ class TestMarkovContinuous(unittest.TestCase):
         np.testing.assert_array_almost_equal(self.markov.theta, expected, decimal=6)
     
     def test_mean_prediction(self):
-        self.markov.fit(self.initial, self.time, self.final)
+        self.markov.theta = np.array([0.508275, 0.410478, 0.281638, 0.247331, 0.      ])
         
         mean = self.markov.get_mean_over_time(delta_time=10, initial_IC=2)
         self.assertAlmostEqual(mean[-1], 4.407041166528558, places=4)
+    
+    def test_std_prediction(self):
+        self.markov.theta = np.array([0.508275, 0.410478, 0.281638, 0.247331, 0.      ])
         
+        mean = self.markov.get_std_over_time(delta_time=10, initial_IC=2)
+        self.assertAlmostEqual(mean[-1], 0.7851147079718335, places=4)
+    
     def test_next_state_sampling(self):
+        current_IC = 3
         self.markov.theta = np.array([0.5, 1, 1.5, 2])
         
         counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         num_samples = 10000
         
         for i in range(num_samples):
-            next_state = self.markov.get_next_IC(current_IC=3)
+            next_state = self.markov.get_next_IC(current_IC)
             counts[next_state] += 1
             
         probs = np.array([counts[i]/num_samples for i in [1,2,3,4,5]])
-        expected_probs = self.markov.transition_matrix[2]
-        np.testing.assert_array_almost_equal(probs, expected_probs, decimal=2)    
+        
+        expected_probs = self.markov.transition_matrix[current_IC-1]
+        np.testing.assert_array_almost_equal(probs, expected_probs, decimal=2)
         
     def test_mc_prediction(self):
-        # Test MC prediction is close to analytical
+        # Test if MC prediction is close to analytical
+        delta_time = 10
+        initial_IC = 2
+        
         self.markov.fit(self.initial, self.time, self.final)
         
-        analytical = self.markov.get_mean_over_time(delta_time=10, initial_IC=2)[-1]
-        mc = self.markov.get_mean_over_time_MC(delta_time=10, initial_IC=2, num_samples=10000)[-1]
+        analytical = self.markov.get_mean_over_time(delta_time, initial_IC)[-1]
+        mc = self.markov.get_mean_over_time_MC(delta_time, initial_IC, num_samples=10000)[-1]
         
         self.assertLess(abs(analytical - mc), 0.02)
         
