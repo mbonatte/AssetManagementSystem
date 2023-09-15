@@ -31,7 +31,13 @@ class Performance():
         self.action_effects = ActionEffect.set_action_effects(
             deterioration_model._number_of_states,
             maintenance_actions)
+        
+        self.list_of_possible_ICs = np.linspace(start = self.deterioration_model.best_IC,
+                                                stop = self.deterioration_model.worst_IC,
+                                                num = self.deterioration_model._number_of_states,
+                                                dtype = int)
         self.Q = self.deterioration_model.intensity_matrix
+        self.standard_transition_matrix = expm(self.Q)
 
         self._number_of_process = 1
 
@@ -62,15 +68,9 @@ class Performance():
         return reduction_factor
 
     def _choose_randomly_the_next_IC(self, current_IC, transition_matrix):
-        population = np.linspace(start=self.deterioration_model.best_IC,
-                                 stop=self.deterioration_model.worst_IC,
-                                 num=self.deterioration_model._number_of_states,
-                                 dtype=int) #Should I use 'np.arange'?
         IC_index = int(abs(current_IC - self.deterioration_model.best_IC)) #Should I remove 'int'?
         prob = transition_matrix[IC_index]
-        return choices(population=population, #Remove key words !!!
-                       weights=prob,
-                       k=1)[0]
+        return choices(self.list_of_possible_ICs, prob, k=1)[0]
 
     def get_improved_IC(self, IC, improvement):
         if self.deterioration_model._is_transition_crescent:
@@ -124,8 +124,10 @@ class Performance():
             return current_state
 
         # compute transition matrix
-        intensity_matrix_reduced = self.Q * reduction_factor
-        transition_matrix = expm(intensity_matrix_reduced)
+        transition_matrix = self.standard_transition_matrix
+        if reduction_factor != 1:
+            intensity_matrix_reduced = self.Q * reduction_factor
+            transition_matrix = expm(intensity_matrix_reduced)
 
         # calculate next state
         next_IC = self._choose_randomly_the_next_IC(current_state,
