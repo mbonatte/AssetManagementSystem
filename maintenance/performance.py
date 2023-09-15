@@ -33,7 +33,7 @@ class Performance():
             maintenance_actions)
         self.Q = self.deterioration_model.intensity_matrix
 
-        self._number_of_process = 16
+        self._number_of_process = 1
 
     def get_action(self, time) -> List:
         return self.actions_schedule.get(str(time), None)
@@ -174,7 +174,7 @@ class Performance():
                          time_horizon: int,
                          initial_IC: int = None,
                          actions_schedule: Dict = {},
-                         number_of_samples:int = 100) -> np.array:
+                         number_of_samples:int = 10) -> np.array:
         """
         Get the mean prediction by Monte Carlo approach.
 

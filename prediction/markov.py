@@ -97,7 +97,7 @@ class MarkovContinous():
         self.verbose = verbose
         self.optimizer = optimizer
         
-        self._number_of_process = 16
+        self._number_of_process = 1
         
         self._number_of_states = abs(worst_IC - best_IC) + 1
         self._is_transition_crescent = best_IC < worst_IC
