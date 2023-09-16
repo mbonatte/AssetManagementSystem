@@ -9,11 +9,24 @@ from .maintenance import ActionEffect
 
 import numpy as np
 from multiprocessing import Pool
-from scipy.linalg import expm
 from random import choices
 
 from typing import List, Dict
 
+from numba import jit
+
+@jit(nopython=True, nogil=True, cache=True)
+def numba_matrix_power(a, b):
+    return np.linalg.matrix_power(a, b)
+
+
+# Create my own 'expm', it's faster than scipy.linalg.expm
+import math
+factorials = [1/math.factorial(i) for i in range(15)]
+def expm(Q):
+    Q = [numba_matrix_power(Q,i) for i in range(6)]
+    P = sum(f*q for q,f in zip(Q,factorials))
+    return P
 
 class Sample():
     def __init__(self):
@@ -68,7 +81,7 @@ class Performance():
         return reduction_factor
 
     def _choose_randomly_the_next_IC(self, current_IC, transition_matrix):
-        IC_index = int(abs(current_IC - self.deterioration_model.best_IC)) #Should I remove 'int'?
+        IC_index = abs(current_IC - self.deterioration_model.best_IC)
         prob = transition_matrix[IC_index]
         return choices(self.list_of_possible_ICs, prob, k=1)[0]
 
