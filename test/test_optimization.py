@@ -7,10 +7,10 @@ from prediction.markov import MarkovContinous
 from optimization.problem import MaintenanceSchedulingProblem
 from optimization.multi_objective_optimization import Multi_objective_optimization
 
-from numba import njit
-@njit
-def set_seed(value):
-    np.random.seed(value)
+# from numba import njit
+# @njit
+# def set_seed(value):
+    # np.random.seed(value)
 
 class TestMaintenanceSchedulingProblem(unittest.TestCase):
 
@@ -88,15 +88,17 @@ class TestMaintenanceSchedulingProblem(unittest.TestCase):
         self.assertEqual(n_actions, 3)
         
     def test_calc_performance(self):
-        set_seed(1)
+        random.seed(1)
+        # set_seed(1)
         area_under_curve = self.problem._calc_performance([self.action_binary])[0]
-        self.assertAlmostEqual(area_under_curve, 63.3, delta=1e-5)
+        self.assertAlmostEqual(area_under_curve, 65.10000, delta=1e-5)
     
     def test_evaluate(self):
         out = {}
-        set_seed(1)
+        random.seed(1)
+        # set_seed(1)
         self.problem._evaluate([self.action_binary], out)
-        self.assertAlmostEqual(out['F'][0][0], 63.3, delta=1e-5)
+        self.assertAlmostEqual(out['F'][0][0], 65.10000, delta=1e-5)
         self.assertAlmostEqual(out['F'][1][0], 10.321, places=3)
     
 
@@ -151,7 +153,7 @@ class TestMulti_objective_optimization(unittest.TestCase):
         self.optimization.set_problem(problem)
         
     def test_minimize(self):
-        set_seed(1)
+        # set_seed(1)
         np.random.seed(1)
         res = self.optimization.minimize()
         
@@ -161,13 +163,13 @@ class TestMulti_objective_optimization(unittest.TestCase):
         cost = res.F.T[1][sort]
         best_action = self.optimization.problem._decode_solution(res.X[sort][-1])
         
-        self.assertAlmostEqual(performance[0], 72.5, places=3)
-        self.assertAlmostEqual(performance[-1], 54.1, places=3)
+        self.assertAlmostEqual(performance[0], 77.8999, places=3)
+        self.assertAlmostEqual(performance[-1], 50.9, places=3)
         
         self.assertAlmostEqual(cost[0], 0, places=3)
-        self.assertAlmostEqual(cost[-1], 17.1702, places=4)
+        self.assertAlmostEqual(cost[-1], 13.816831, places=5)
         
-        action =  {'16': 'action_1', '3': 'action_1', '4': 'action_2', '7': 'action_1', '8': 'action_1'}
+        action =  {'11': 'DoNothing', '13': 'action_1', '2': 'action_2', '4': 'action_1', '9': 'action_1'}
         self.assertEqual(action, best_action)
 
 if __name__ == '__main__':

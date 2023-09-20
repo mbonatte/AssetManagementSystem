@@ -9,35 +9,36 @@ from .maintenance import ActionEffect
 
 import numpy as np
 from multiprocessing import Pool
-
+from scipy.linalg import expm
+from random import choices
 from typing import List, Dict
 
-from numba import jit
+# from numba import jit
 
-@jit(nopython=True, nogil=True, cache=True)
-def numba_matrix_power(a, b):
-    return np.linalg.matrix_power(a, b)
+# @jit(nopython=True, nogil=True, cache=True)
+# def numba_matrix_power(a, b):
+    # return np.linalg.matrix_power(a, b)
 
 
-# Create my own 'expm', it's faster than scipy.linalg.expm
-import math
-factorials = [1/math.factorial(i) for i in range(15)]
-def expm(Q):
-    Q = [numba_matrix_power(Q,i) for i in range(6)]
-    P = sum(f*q for q,f in zip(Q,factorials))
-    return P
+# # Create my own 'expm', it's faster than scipy.linalg.expm
+# import math
+# factorials = [1/math.factorial(i) for i in range(15)]
+# def expm(Q):
+    # Q = [numba_matrix_power(Q,i) for i in range(6)]
+    # P = sum(f*q for q,f in zip(Q,factorials))
+    # return P
 
-# Create my own 'choices', it's faster than random.choices
-@jit(nopython=True, cache=True)
-def choices(population, weights):
-    r = np.random.rand()
-    for i in range(len(weights)-1):
-        A = 0
-        for j in range(i+1):
-            A += weights[j]
-            if(r < A):
-                return population[i]
-    return population[-1]
+# # Create my own 'choices', it's faster than random.choices
+# @jit(nopython=True, cache=True)
+# def choices(population, weights):
+    # r = np.random.rand()
+    # for i in range(len(weights)-1):
+        # A = 0
+        # for j in range(i+1):
+            # A += weights[j]
+            # if(r < A):
+                # return population[i]
+    # return population[-1]
 
 class Sample():
     def __init__(self):
@@ -100,7 +101,7 @@ class Performance():
         prob = transition_matrix[IC_index]
         
         # Randomly select the next IC based on the calculated probabilities
-        return choices(self.list_of_possible_ICs, prob)
+        return choices(self.list_of_possible_ICs, prob, k=1)[0]
 
     def get_improved_IC(self, IC, improvement):
         if self.deterioration_model._is_transition_crescent:
