@@ -72,28 +72,34 @@ class Performance():
         self.actions_schedule = actions_schedule
 
     def get_reduction_factor(self,
-                             sample: list,
+                             sample: dict,
                              time: int):
         reduction_factor = 1
         
-        for t in range(time+1):
-            
-            if(sample[t].timeOfReduction - (time - t) > 0
-                    and sample[t].rateOfReduction < reduction_factor):
-                reduction_factor = sample[t].rateOfReduction
+        for t, s in sample.items():
+            if time < t:
+                continue
+            time_difference = time - t
+            if s.timeOfReduction - time_difference > 0 and s.rateOfReduction < reduction_factor:
+                reduction_factor = s.rateOfReduction
                 self.last_intervention['reduction'] = reduction_factor
                 
-            if(sample[t].timeOfDelay - (time - t) > 0):
+            if s.timeOfDelay - time_difference > 0:
                 # there is suppression (P - is identity matrix)
                 reduction_factor = 0
                 self.last_intervention['reduction'] = reduction_factor
                 break
-            
+        
         return reduction_factor
 
     def _choose_randomly_the_next_IC(self, current_IC, transition_matrix):
+        # Calculate the index for the current_IC relative to the best_IC
         IC_index = abs(current_IC - self.deterioration_model.best_IC)
+        
+        # Use the transition matrix to determine the probabilities
         prob = transition_matrix[IC_index]
+        
+        # Randomly select the next IC based on the calculated probabilities
         return choices(self.list_of_possible_ICs, prob)
 
     def get_improved_IC(self, IC, improvement):
@@ -104,7 +110,7 @@ class Performance():
 
     def _get_next_IC(self,
                      current_state: int,
-                     interventions: list,
+                     interventions: dict,
                      time: int,
                      action):
         """
@@ -128,9 +134,10 @@ class Performance():
 
         """
         # ação corretiva
-        if interventions[time].improvement:
-            return self.get_improved_IC(current_state,
-                                        interventions[time].improvement)
+        if interventions.get(time, None):
+            if interventions[time].improvement:
+                return self.get_improved_IC(current_state,
+                                            interventions[time].improvement)
 
         # compute rate of reduction
         reduction_factor = self.get_reduction_factor(
@@ -162,26 +169,34 @@ class Performance():
 
     def set_interventions_effect(self, intervention, action, IC):
         IC_index = int(abs(IC - self.deterioration_model.best_IC))
+        
         intervention.timeOfDelay = action.get_time_of_delay(IC_index)
         intervention.improvement = action.get_improvement(IC_index)
         intervention.timeOfReduction = action.get_time_of_reduction(IC_index)
         intervention.rateOfReduction = action.get_reduction_rate(IC_index)
+        
         self.last_intervention['duration'] = max(intervention.timeOfDelay,
                                                  intervention.timeOfReduction)
         self.last_intervention['reduction'] = 1
 
+   
     def predict_MC(self,
                    time_horizon,
                    initial_IC):
-        time_horizon += 1  # 0 + time_horizon
+        #Time horizon for years [0 + time_horizon]
+        time_horizon += 1
 
         asset_condition = np.empty(time_horizon, dtype=int)
+        asset_condition[0] = initial_IC
+        
         # I still need to get rid off the ´Sample´ class
-        interventions = [Sample() for _ in range(time_horizon)]
+        #interventions = [Sample() for _ in range(time_horizon)]
+        interventions = {int(year): Sample() for year, action in self.actions_schedule.items()}
+        
         self.last_intervention = {"time": 0,
                                   "duration": 0,
                                   "reduction": 1}
-        asset_condition[0] = initial_IC
+        
         ## Cache the method reference for better performance
         for time in range(1, time_horizon):
             action = self.get_action(time)
@@ -190,6 +205,7 @@ class Performance():
                 self.set_interventions_effect(interventions[time],
                                               self.action_effects[action],
                                               asset_condition[time-1])
+            
             asset_condition[time] = self._get_next_IC(asset_condition[time-1],
                                                       interventions,
                                                       time,
@@ -227,9 +243,12 @@ class Performance():
             samples = [self.predict_MC(time_horizon,initial_IC) for _ in range(number_of_samples)]
             return np.mean(samples, axis=0)  # Mean pear year
             
+        
+        chunk_size = max(number_of_samples // self._number_of_process, 1)
+        chunks = [(time_horizon, initial_IC)] * number_of_samples
         with Pool(processes=self._number_of_process) as p:
-            #pool_results = pool.starmap(self.predict_MC, [(time_horizon, initial_IC)] * number_of_samples)
-            #samples = np.array(pool_results)
+            # pool_results = p.starmap(self.predict_MC, chunks, chunksize=chunk_size)
+            # samples = np.array(pool_results)
             pool_results = [p.apply_async(self.predict_MC,
                                           (
                                               time_horizon,
@@ -239,3 +258,4 @@ class Performance():
             samples = [result.get() for result in pool_results]
 
         return np.mean(samples, axis=0)  # Mean pear year
+from os import getpid
