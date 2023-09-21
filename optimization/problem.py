@@ -6,6 +6,7 @@ Created on Sep 21, 2022.
 """
 
 from pymoo.core.problem import Problem
+from pymoo.core.problem import ElementwiseProblem
 
 from prediction.markov import MarkovContinous
 from maintenance.maintenance import ActionEffect
@@ -19,7 +20,7 @@ class MaintenanceSchedulingProblem(Problem):
     Maintenance scheduling optimization problem.
     """
 
-    def __init__(self, markov, maintenance_file, time_horizon):
+    def __init__(self, markov, maintenance_file, time_horizon, **kwargs):
         """
         Initialize the problem.
 
@@ -39,14 +40,15 @@ class MaintenanceSchedulingProblem(Problem):
                          # n_ieq_constr=1,
                          xl=[0, 0] * 5,
                          xu=[self.time_horizon, len(self.performance_model.action_effects)-1] * 5,
-                         vtype=int
+                         vtype=int,
+                         **kwargs
                          )
 
     def _evaluate(self, x, out, *args, **kwargs):
         """
         Evaluate the objective functions.
         """
-        
+        #print(x)
         # Objectives
         
         # Minimize performance indicator
@@ -66,6 +68,7 @@ class MaintenanceSchedulingProblem(Problem):
         """
         Calculate performance indicator for population.
         """
+        #return sum(self._get_performance(self._decode_solution(xs)))
         return [sum(self._get_performance(self._decode_solution(x))) for x in xs]
     
     def _get_performance(self, actions_schedule):
@@ -82,6 +85,7 @@ class MaintenanceSchedulingProblem(Problem):
         """
         Calculate maintenance budget for population. 
         """
+        #return self._get_budget(self._decode_solution(xs))
         return [self._get_budget(self._decode_solution(x)) for x in xs]
 
     def _get_budget(self, actions_schedule):
