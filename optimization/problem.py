@@ -116,7 +116,7 @@ class MaintenanceSchedulingProblem(Problem):
         Create performance model.
         """
         model = Performance(markov, maintenance_file)
-        model._number_of_process = 32
+        model._number_of_process = 1
         return model
 
     def _decode_solution(self, binary):
@@ -126,7 +126,8 @@ class MaintenanceSchedulingProblem(Problem):
         binary_year = binary.reshape(-1, 2)
         actions = {}
         for year, action in binary_year:
-            actions[str(year)] = list(self.actions)[action]
+            if action!=0:
+                actions[str(year)] = list(self.actions)[action]
         return dict(sorted(actions.items()))
 
     def _set_actions(self, maintenance_file):
