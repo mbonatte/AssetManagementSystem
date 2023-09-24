@@ -45,6 +45,7 @@ class Multi_objective_optimization():
                           self.termination,
                           # seed=self.seed,
                           save_history=self.save_history,
+                          return_least_infeasible=True,
                           verbose=self.verbose)
         return result
 

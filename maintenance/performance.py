@@ -169,7 +169,7 @@ class Performance():
         #            current_state)
 
     def set_interventions_effect(self, intervention, action, IC):
-        IC_index = int(abs(IC - self.deterioration_model.best_IC))
+        IC_index = IC
         
         intervention.timeOfDelay = action.get_time_of_delay(IC_index)
         intervention.improvement = action.get_improvement(IC_index)

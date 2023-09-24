@@ -45,10 +45,10 @@ class ActionEffect():
         self.cost = 0
         
         # Effects modeled as triangular distribution
-        self.time_of_delay = [[0, 0, 0] for i in range(number_of_states)]
-        self.improvement = [[0, 0, 0] for i in range(number_of_states)]
-        self.time_of_reduction = [[0, 0, 0] for i in range(number_of_states)]
-        self.reduction_rate = [[1, 1, 1] for i in range(number_of_states)]
+        self.time_of_delay = {}#[[0, 0, 0] for i in range(number_of_states)]
+        self.improvement = {}#[[0, 0, 0] for i in range(number_of_states)]
+        self.time_of_reduction = {}#[[0, 0, 0] for i in range(number_of_states)]
+        self.reduction_rate = {}#[[1, 1, 1] for i in range(number_of_states)]
 
     def _get_effect(self, action):
         left = action[0]
@@ -60,23 +60,24 @@ class ActionEffect():
             return mode
 
     def get_improvement(self, state):
-        return self._get_effect(self.improvement[state])
+        return self._get_effect(self.improvement.get(state,[0,0,0]))
 
     def get_reduction_rate(self, state):
-        return self._get_effect(self.reduction_rate[state])
+        return self._get_effect(self.reduction_rate.get(state,[1,1,1]))
 
     def get_time_of_delay(self, state):
-        return self._get_effect(self.time_of_delay[state])
+        return self._get_effect(self.time_of_delay.get(state,[0,0,0]))
 
     def get_time_of_reduction(self, state):
-        return self._get_effect(self.time_of_reduction[state])
+        return self._get_effect(self.time_of_reduction.get(state,[0,0,0]))
 
     def _set_effect(self, action, effect):
-        effect = np.array(effect).reshape(self.number_of_states,
-                                          3)  # 3 for the triangular distribution
-        for i, eff in enumerate(effect):
+        # effect = np.array(effect).reshape(self.number_of_states,
+                                          # 3)  # 3 for the triangular distribution
+        for i, eff in effect.items():
             try:
-                action[i] = list(np.float_(eff))
+                #action[i] = list(np.float_(eff))
+                action[i] = eff
             except ValueError:
                 continue
 
