@@ -77,7 +77,7 @@ class ActionEffect():
         for i, eff in effect.items():
             try:
                 #action[i] = list(np.float_(eff))
-                action[i] = eff
+                action[int(i)] = eff
             except ValueError:
                 continue
 
