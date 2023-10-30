@@ -356,4 +356,218 @@ class ASFiNAGProblem(MaintenanceSchedulingProblem):
         
         return actions
         
+class NetworkProblem(Problem):
+    """
+    Network optimization problem.
     
+    In the network optimization, each element of the population represents the
+    index of the solution in the Pareto set obtained by section optimization,
+    with position in the population referring to the corresponding pavement section 
+    in the road network. For instance, the population [3 5 2 7 6 1 2 5 4 9] encodes 
+    that the third solution from the Pareto set must be used for the first section, 
+    whereas for the second section the fifth solution must be implemented, and so on.
+    """
+
+    def __init__(self, section_optimization, **kwargs):
+        """
+        Initialize the network problem.
+
+        Args:
+            section_optimization: dictionary with results from the section optimization
+        """
+        self.section_optimization = section_optimization
+        
+        n_sections = len(self.section_optimization) # Number of sections in the analysis
+        
+        xl = [0] * n_sections
+        xu = [len(n['Performance'])-1 for n in self.section_optimization.values()]
+        
+        super().__init__(
+            n_var=n_sections,
+            n_obj=2,
+            n_ieq_constr=0,
+            xl=xl,
+            xu=xu,
+            vtype=int,
+            **kwargs
+            )
+
+    def _evaluate(self, x, out, *args, **kwargs):
+        """
+        Evaluate the objective functions.
+        """
+        
+        # Objectives
+        
+        # Minimize network performance indicator
+        f1 = self._calc_network_performance_indicator_pop(x)
+
+        # Minimize cost
+        f2 = self._calc_network_budget_pop(x)
+        
+        out["F"] = [f1, f2]
+        
+        
+    def _calc_network_performance_indicator_pop(self, xs):
+        mean_performances = []
+        
+        for x in xs:
+            mean_performances.append(self._calc_network_performance_indicator(x))
+        
+        return mean_performances
+    
+    def _calc_network_performance_indicator(self, xs):
+        performances = []
+        
+        for x, section in zip(xs, self.section_optimization.values()):
+            performances.append(section['Performance'][x])
+        
+        return np.mean(performances)
+    
+    def _calc_network_budget_pop(self, xs):
+        sum_costs = []
+        
+        for x in xs:
+            sum_costs.append(self._calc_network_budget(x))
+        
+        return sum_costs
+    
+    def _calc_network_budget(self, xs):
+        costs = []
+        
+        for x, section in zip(xs, self.section_optimization.values()):
+            costs.append(section['Cost'][x])
+        
+        return np.sum(costs)
+        
+        
+class NetworkTrafficProblem(NetworkProblem):
+    """
+    Network optimization problem considering the traffic impact.
+    """
+
+    def __init__(self, section_optimization, TMS_output, actions, **kwargs):
+        """
+        Initialize the network traffic problem.
+
+        Args:
+            section_optimization: dictionary with results from the section optimization
+        """
+        self.section_optimization = section_optimization
+        self.TMS_output = TMS_output
+        self.actions = actions
+        
+        n_sections = len(self.section_optimization) # Number of sections in the analysis
+        
+        xl = [0] * n_sections
+        xu = [len(n['Performance'])*2-1 for n in self.section_optimization.values()]
+        
+        Problem.__init__(
+            self,
+            n_var=n_sections,
+            n_obj=3,
+            n_ieq_constr=0,
+            xl=xl,
+            xu=xu,
+            vtype=int,
+            **kwargs
+            )
+
+    def _evaluate(self, x, out, *args, **kwargs):
+        """
+        Evaluate the objective functions.
+        """
+        
+        # Objectives
+        
+        # Minimize network performance indicator
+        f1 = self._calc_network_performance_indicator_pop(x)
+
+        # Minimize cost
+        f2 = self._calc_network_budget_pop(x)
+        
+        # Minimize fuel consuption
+        f3 = self._calc_fuel_pop(x)
+        
+        out["F"] = [f1, f2, f3]
+        
+    def _calc_network_performance_indicator(self, xs):
+        performances = []
+        
+        for x, section in zip(xs, self.section_optimization.values()):
+            if x > len(self.xu)/2:
+                x = int(x - len(self.xu)/2)
+            
+            performances.append(section['Performance'][x])
+        
+        return np.mean(performances)
+    
+    def _calc_network_budget_pop(self, xs):
+        sum_costs = []
+        
+        for x in xs:
+            sum_costs.append(self._calc_network_budget(x))
+        
+        return sum_costs
+    
+    def _calc_network_budget(self, xs):
+        costs = []
+        
+        for x, section in zip(xs, self.section_optimization):
+            actions = self.get_actions(x, section)
+            
+            for action in actions:
+                for item in self.actions:
+                    if item['name'] == action:
+                        action = self.get_action_option(x, action)
+                        multiplyer = self._get_network_multiplyer(self.TMS_output[section], action)
+                        cost = multiplyer * item['cost']
+                        costs.append(cost)
+                        break
+        
+        return np.sum(costs)
+    
+    def _get_network_multiplyer(self, section, action):
+        return section[action]['Cost']
+    
+    def _calc_fuel_pop(self, xs):
+        fuels = []
+        
+        for x in xs:
+            fuels.append(self._calc_fuel(x))
+        
+        return fuels
+    
+    def _calc_fuel(self, xs):
+        fuel = []
+        
+        for x, section in zip(xs, self.section_optimization):
+            actions = self.get_actions(x, section)
+            actions = [self.get_action_option(x, action) for action in actions]
+            fuel.append(self.get_fuel(self.TMS_output[section], actions))
+            
+        return np.sum(fuel)
+    
+    def get_fuel(self, section, actions):
+        fuel = 0
+        
+        for action in actions:
+            fuel += section[action]['Fuel']
+        
+        return fuel
+        
+    def get_actions(self, x, section):
+        if x > len(self.xu)/2:
+            _x = int(x - len(self.xu)/2)
+            actions = self.section_optimization[section]['Actions_schedule'][_x].values()
+        else:
+            actions = self.section_optimization[section]['Actions_schedule'][x].values()
+        return actions
+    
+    
+    def get_action_option(self, x, action):
+        if x > len(self.xu)/2:
+            action += '_2'
+        else:
+            action += '_10'
+        return action
