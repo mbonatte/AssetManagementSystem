@@ -2,15 +2,10 @@ import unittest
 import random
 import numpy as np
 
-from prediction.markov import MarkovContinous
+from ams.prediction.markov import MarkovContinous
 
-from maintenance.maintenance import ActionEffect
-from maintenance.performance import Performance, Sample
-
-# from numba import njit
-# @njit
-# def set_seed(value):
-    # np.random.seed(value)
+from ams.performance.maintenance import ActionEffect
+from ams.performance.performance import Performance, Sample
 
 class TestActionEffect(unittest.TestCase):
 

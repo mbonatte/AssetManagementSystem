@@ -2,7 +2,7 @@ import unittest
 import random
 import numpy as np
 
-from prediction.markov import MarkovContinous
+from ams.prediction.markov import MarkovContinous
 
 class TestMarkovContinuous(unittest.TestCase):
 
@@ -67,7 +67,7 @@ class TestMarkovContinuous(unittest.TestCase):
         
         random.seed(1)
         for i in range(num_samples):
-            next_state = self.markov.get_next_IC(current_IC)
+            next_state = self.markov._get_next_IC(current_IC)
             counts[next_state] += 1
             
         probs = np.array([counts[i]/num_samples for i in [1,2,3,4,5]])

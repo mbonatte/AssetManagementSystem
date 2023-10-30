@@ -1,11 +1,6 @@
-# Pavement Management System (PMS)
+# Asset Management System (AMS)
 
- Pavement Management System (PMS) is a comprehensive framework and set of tools used to effectively manage and maintain road pavements.
+Asset Management System (AMS) is a comprehensive framework and set of tools used to effectively manage and maintain assets.
 
-## website
-
-https://infrarobpms.pythonanywhere.com/
-
-## How it Works
-
-This API uses the Web Server Gateway Interface (WSGI) with Flask to enable handling requests.
+The software is composed of five main packages.
+<img src="/Images/Packages.PNG">

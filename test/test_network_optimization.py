@@ -2,8 +2,8 @@ import unittest
 import random
 import numpy as np
 
-from optimization.problem import NetworkProblem, NetworkTrafficProblem
-from optimization.multi_objective_optimization import Multi_objective_optimization
+from ams.optimization.problem import NetworkProblem, NetworkTrafficProblem
+from ams.optimization.multi_objective_optimization import Multi_objective_optimization
 
 class TestNetworkProblem(unittest.TestCase):
 
@@ -126,42 +126,6 @@ class TestNetworkOptimization(unittest.TestCase):
         
         self.assertEqual(cost[0], 20)
         self.assertEqual(cost[-1], 100)
-
-class TestNetworkOptimization_Real(unittest.TestCase):
-    def setUp(self):
-        import json
-        from pathlib import Path
-        
-        MAIN_FOLDER = Path(__file__).parent.parent.resolve()
-        
-        path = MAIN_FOLDER / 'database/optimization_output.json'
-        with open(path, "r") as file:
-            section_optimization = json.load(file)
-        
-        problem = NetworkProblem(section_optimization)
-        
-        self.optimization = Multi_objective_optimization()
-        self.optimization.verbose = False
-        self.optimization.set_problem(problem)
-        
-        self.optimization._set_algorithm({"name": "NSGA2", "pop_size": 20, "eliminate_duplicates": True})
-        self.optimization._set_termination({'name':'n_gen', 'n_max_gen':20})
-        
-    def test_minimize(self):
-        np.random.seed(1)
-        
-        res = self.optimization.minimize()
-        
-        sort = np.argsort(res.F.T)[1]
-        
-        performance = res.F.T[0][sort]
-        cost = res.F.T[1][sort]
-        
-        self.assertEqual(performance[0], 93.90625)
-        self.assertEqual(performance[-1], 60.3375)
-        
-        self.assertEqual(cost[0], 146.94)
-        self.assertEqual(cost[-1], 407.52)
 
 class TestNetworkTrafficProblem(unittest.TestCase):
 

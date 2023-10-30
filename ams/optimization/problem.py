@@ -8,9 +8,9 @@ Created on Sep 21, 2022.
 from pymoo.core.problem import Problem
 from pymoo.core.problem import ElementwiseProblem
 
-from prediction.markov import MarkovContinous
-from maintenance.maintenance import ActionEffect
-from maintenance.performance import Performance
+from ams.prediction.markov import MarkovContinous
+from ams.performance.maintenance import ActionEffect
+from ams.performance.performance import Performance
 
 import numpy as np
 import json

@@ -15,13 +15,14 @@ exponential distribution and transitions specified by a stochastic matrix.
 """
 
 from typing import List, Tuple
-import numpy as np
-from numpy.linalg import matrix_power
-from scipy.optimize import minimize
-from scipy.linalg import expm
 from random import choices
 from multiprocessing import Pool
 
+import numpy as np
+
+from numpy.linalg import matrix_power
+from scipy.optimize import minimize
+from scipy.linalg import expm
 
 class MarkovContinous():
     """
@@ -49,23 +50,11 @@ class MarkovContinous():
     likelihood:
         Calculate likelihood
         
-    optimize_theta: 
-        Optimize theta parameters
-        
-    initial_guess_theta:
-        Initialize theta parameters
-        
     get_mean_over_time:
         Get expected value over time
     
     get_std_over_time:
         Get standard deviation over time
-        
-    get_next_ic:
-        Sample next index condition
-        
-    predict_mc:
-        Monte Carlo simulation
         
     get_mean_over_time_mc:
         Get expected value via Monte Carlo
@@ -102,9 +91,10 @@ class MarkovContinous():
         self._number_of_states = abs(worst_IC - best_IC) + 1
         self._is_transition_crescent = best_IC < worst_IC
         
-        self.list_of_possible_ICs = np.arange(
-            self.best_IC, self.worst_IC + 1, dtype=int
-        )
+        self.list_of_possible_ICs = np.linspace(start = self.best_IC,
+                                                stop = self.worst_IC,
+                                                num = self._number_of_states,
+                                                dtype = int)
         
         self._is_fitted = False
 
@@ -165,7 +155,7 @@ class MarkovContinous():
         Parameters
         ----------
         delta_time : int, optional
-            Time span for prediction (default 1)
+            Time span for prediction (default 1 unit time)
         """
         
         return matrix_power(self.transition_matrix,
@@ -413,7 +403,6 @@ class MarkovContinous():
         if self.verbose:
             print("Posterior likelihood:", self.likelihood(initial, time, final))
 
-
     def get_mean_over_time(
         self, delta_time: int, initial_IC: int = None
     ) -> np.ndarray:
@@ -474,7 +463,7 @@ class MarkovContinous():
             
         return std_IC
 
-    def get_next_IC(self, current_IC: int) -> int:
+    def _get_next_IC(self, current_IC: int) -> int:
         """
         Sample next index condition.
 
@@ -495,7 +484,7 @@ class MarkovContinous():
         
         return choices(self.list_of_possible_ICs, weights=prob, k=1)[0]
 
-    def predict_MC(
+    def _predict_MC(
         self, delta_time: int, initial_IC: int
     ) -> np.ndarray:
         """
@@ -518,10 +507,10 @@ class MarkovContinous():
         sample = np.empty(delta_time, dtype=int)
         sample[0] = initial_IC
         
-        get_next_IC = self.get_next_IC  # Cache the method reference for better performance
+        _get_next_IC = self._get_next_IC  # Cache the method reference for better performance
         
         for t in range(1, delta_time):
-            sample[t] = get_next_IC(sample[t-1])
+            sample[t] = _get_next_IC(sample[t-1])
         
         return sample
 
@@ -555,11 +544,11 @@ class MarkovContinous():
             initial_IC = self.best_IC
         
         if self._number_of_process == 1:
-            samples = [self.predict_MC(delta_time + 1,initial_IC) for _ in range(num_samples)]
+            samples = [self._predict_MC(delta_time + 1,initial_IC) for _ in range(num_samples)]
             return np.mean(samples, axis=0)  # Mean pear year
         
         with Pool() as pool:
-            results  = [pool.apply_async(self.predict_MC,
+            results  = [pool.apply_async(self._predict_MC,
                                           (delta_time + 1, initial_IC))
                         for _ in range(num_samples)]
                         

@@ -29,37 +29,46 @@ from pymoo.optimize import minimize
 
 
 class Multi_objective_optimization():
-    def __init__(self):
+    def __init__(self, config={}):
+        """
+    
+        config = {
+            "algorithm": 
+                {
+                "name": "NSGA2",
+                "pop_size": 50,
+                "eliminate_duplicates": true
+                },
+            "termination": 
+                {
+                "name": "n_gen",
+                "n_max_gen": 50
+                }
+        }
+        
+        """
         self.problem = None
         self.algorithm = None
         self.termination = None
-        self.seed = 1
         self.save_history = True
         self.verbose = True
 
-        self._read_config_file()
+        self._set_algorithm(config.get("algorithm"))
+        self._set_termination(config.get("termination"))
 
     def minimize(self):
         result = minimize(self.problem,
                           self.algorithm,
                           self.termination,
-                          # seed=self.seed,
-                          save_history=self.save_history,
-                          return_least_infeasible=True,
-                          verbose=self.verbose)
+                          save_history = self.save_history,
+                          return_least_infeasible = True,
+                          verbose = self.verbose)
         return result
-
-    def set_problem(self, problem):
-        self.problem = problem
-
-    def _read_config_file(self):
-        file = THIS_FOLDER / 'optimization_config.json'
-        with open(file, 'r') as f:
-            data = json.load(f)
-        self._set_algorithm(data.get('algorithm', None))
-        self._set_termination(data.get('termination', None))
-
-    def _set_algorithm(self, algorithm=None):
+        
+    def _set_algorithm(self, algorithm):
+        if algorithm is None:
+            algorithm = {'name': 'NSGA2', 'pop_size': 10, 'eliminate_duplicates': True}
+    
         if algorithm['name'] == 'NSGA2':
             algorithm = NSGA2(pop_size=algorithm['pop_size'],
                               sampling=IntegerRandomSampling(),
@@ -76,9 +85,14 @@ class Multi_objective_optimization():
 
         self.algorithm = algorithm
 
-    def _set_termination(self, termination=None):
+    def _set_termination(self, termination):
         if termination is None:
-            termination = get_termination("n_gen", 4)
-        elif termination['name'] == 'n_gen':
+            termination = {'name': 'n_gen', 'n_max_gen': 4}
+        
+        if termination['name'] == 'n_gen':
             termination = get_termination("n_gen", termination['n_max_gen'])
+        
         self.termination = termination
+
+    def set_problem(self, problem):
+        self.problem = problem

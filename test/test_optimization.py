@@ -2,25 +2,16 @@ import unittest
 import random
 import numpy as np
 
-from convert.organization import Organization
+from ams.prediction.markov import MarkovContinous
 
-from prediction.markov import MarkovContinous
+from ams.performance.performance import Performance
 
-from maintenance.performance import Performance
-
-from optimization.problem import MaintenanceSchedulingProblem, ASFiNAGProblem
-from optimization.multi_objective_optimization import Multi_objective_optimization
-
-# from numba import njit
-# @njit
-# def set_seed(value):
-    # np.random.seed(value)
+from ams.optimization.problem import MaintenanceSchedulingProblem, ASFiNAGProblem
+from ams.optimization.multi_objective_optimization import Multi_objective_optimization
 
 class TestASFiNAGProblemProblem(unittest.TestCase):
 
     def setUp(self):
-        organization = Organization.set_organization('ASFiNAG')
-        
         # Thetas
         PI_B = [0.0186, 0.0256, 0.0113, 0.0420]
         PI_CR = [0.0736, 0.1178, 0.1777, 0.3542]
@@ -92,8 +83,6 @@ class TestASFiNAGProblemProblem(unittest.TestCase):
         
         self.action_binary[6] = 10 #year
         self.action_binary[7] = 2 #action_2
-        
-        #print(self.problem.actions)
         
     def test_decode_solution(self):
         actions = self.problem._decode_solution(np.array([0, 0] * 5))
@@ -230,14 +219,12 @@ class TestMaintenanceSchedulingProblem(unittest.TestCase):
         
     def test_calc_area_under_curve(self):
         random.seed(1)
-        # set_seed(1)
         performance = self.problem._evaluate_performance([self.action_binary])[0]
         area_under_curve = self.problem._calc_area_under_curve([performance])[0]
         self.assertAlmostEqual(area_under_curve, 50.6, delta=1e-5)
     
     def test_calc_max_indicator(self):
         random.seed(1)
-        # set_seed(1)
         performance = self.problem._evaluate_performance([self.action_binary])[0]
         max_indicator = self.problem._calc_max_indicator([performance])[0]
         self.assertAlmostEqual(max_indicator, 3.8, delta=1e-5)
@@ -245,7 +232,6 @@ class TestMaintenanceSchedulingProblem(unittest.TestCase):
     def test_evaluate(self):
         out = {}
         random.seed(1)
-        # set_seed(1)
         self.problem._evaluate([self.action_binary], out)
         self.assertAlmostEqual(out['F'][0][0], 50.6, delta=1e-5)
         self.assertAlmostEqual(out['F'][1][0], 16.0243, places=3)
@@ -290,9 +276,9 @@ class TestMulti_objective_optimization(unittest.TestCase):
         self.optimization._set_termination({'name':'n_gen', 'n_max_gen':3})
         
     def test_minimize(self):
-        # set_seed(1)
         np.random.seed(1)
         random.seed(1)
+        
         res = self.optimization.minimize()
         
         sort = np.argsort(res.F.T)[1]
@@ -353,8 +339,6 @@ class TestMulti_objective_optimization(unittest.TestCase):
 class Test_ASFiNAG_optimization(unittest.TestCase):
 
     def setUp(self):
-        organization = Organization.set_organization('ASFiNAG')
-        
         # Thetas
         PI_B = [0.0186, 0.0256, 0.0113, 0.0420]
         PI_CR = [0.0736, 0.1178, 0.1777, 0.3542]
@@ -446,9 +430,9 @@ class Test_ASFiNAG_optimization(unittest.TestCase):
         self.optimization._set_termination({'name':'n_gen', 'n_max_gen':3})
         
     def test_minimize(self):
-        # set_seed(1)
         np.random.seed(1)
         random.seed(1)
+        
         res = self.optimization.minimize()
         
         sort = np.argsort(res.F.T)[1]
