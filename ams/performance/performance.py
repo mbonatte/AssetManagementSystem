@@ -64,8 +64,6 @@ class Performance():
         self.Q = self.deterioration_model.intensity_matrix
         self.standard_transition_matrix = expm(self.Q)
 
-        self._number_of_process = 1
-
     def get_action(self, time) -> List:
         return self.actions_schedule.get(str(time), None)
 
@@ -238,25 +236,8 @@ class Performance():
         """
         if not initial_IC: #if initial_IC is None:
             initial_IC = self.deterioration_model.best_IC
+        
         self._set_actions_schedule(actions_schedule)
         
-        if self._number_of_process == 1:
-            samples = [self.predict_MC(time_horizon,initial_IC) for _ in range(number_of_samples)]
-            return np.mean(samples, axis=0)  # Mean pear year
-            
-        
-        chunk_size = max(number_of_samples // self._number_of_process, 1)
-        chunks = [(time_horizon, initial_IC)] * number_of_samples
-        with Pool(processes=self._number_of_process) as p:
-            # pool_results = p.starmap(self.predict_MC, chunks, chunksize=chunk_size)
-            # samples = np.array(pool_results)
-            pool_results = [p.apply_async(self.predict_MC,
-                                          (
-                                              time_horizon,
-                                              initial_IC)
-                                          )
-                            for _ in range(number_of_samples)]
-            samples = [result.get() for result in pool_results]
-
+        samples = [self.predict_MC(time_horizon,initial_IC) for _ in range(number_of_samples)]
         return np.mean(samples, axis=0)  # Mean pear year
-from os import getpid

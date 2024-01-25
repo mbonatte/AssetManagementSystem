@@ -139,8 +139,6 @@ class TestPerformance(unittest.TestCase):
         
         self.performance = Performance(markov,
                                        action)
-        
-        self.performance._number_of_process = 1
                                        
     def test_get_improved_IC(self):
         self.assertEqual(self.performance.get_improved_IC(10, 0),
