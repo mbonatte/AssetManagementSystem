@@ -86,8 +86,6 @@ class MarkovContinous():
         self.verbose = verbose
         self.optimizer = optimizer
         
-        self._number_of_process = 1
-        
         self._number_of_states = abs(worst_IC - best_IC) + 1
         self._is_transition_crescent = best_IC < worst_IC
         
@@ -536,15 +534,5 @@ class MarkovContinous():
         if initial_IC is None:
             initial_IC = self.best_IC
         
-        if self._number_of_process == 1:
-            samples = [self._predict_MC(delta_time + 1,initial_IC) for _ in range(num_samples)]
-            return np.mean(samples, axis=0)  # Mean pear year
-        
-        with Pool() as pool:
-            results  = [pool.apply_async(self._predict_MC,
-                                          (delta_time + 1, initial_IC))
-                        for _ in range(num_samples)]
-                        
-            samples = [res.get() for res in results ]
-
-        return np.mean(samples, axis=0)
+        samples = [self._predict_MC(delta_time + 1,initial_IC) for _ in range(num_samples)]
+        return np.mean(samples, axis=0)  # Mean pear year
