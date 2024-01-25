@@ -171,13 +171,12 @@ class MarkovContinous():
         
         if self._is_transition_crescent:
             initial_vals = initial[temp == -1]
-            counts = np.unique(initial_vals, return_counts=True)
-            n_transitions[counts[0] - 1] = counts[1]
-        
         else:
             initial_vals = initial[temp == 1]
-            counts = np.unique(initial_vals, return_counts=True)
-            n_transitions[counts[0] - self.worst_IC] = counts[1]
+            
+        counts = np.unique(initial_vals, return_counts=True)
+            
+        n_transitions[abs(counts[0] - self.best_IC)] = counts[1]
         
         return n_transitions
 
@@ -189,22 +188,23 @@ class MarkovContinous():
     ) -> np.ndarray:
         """Get total time spent in each condition."""
         
-        t_transitions = np.zeros(self._number_of_states)
-        temp = initial - final
-        
+        # Determine relevant transitions based on crescent or decrescent nature.
         if self._is_transition_crescent:
-            relevant = temp <= 0
-            times = time[relevant]
-            indices = initial[relevant]
-            
+            relevant = initial <= final
         else:
-            relevant = temp >= 0
-            times = time[relevant]
-            indices = initial[relevant]
+            relevant = initial >= final
             
-        for i in range(self.best_IC, self.worst_IC + 1):
-            t_transitions[i - 1] += times[indices == i].sum()
-            
+        # Filter the relevant times and initial states.
+        times = time[relevant]
+        indices = initial[relevant]
+        
+        # Adjust indices based on crescent or decrescent nature.
+        adjusted_indices = abs(indices - self.best_IC)
+
+        # np.bincount handles the summation for each unique index in adjusted_indices.
+        # The minlength parameter ensures the output array has the desired length.
+        t_transitions = np.bincount(adjusted_indices, weights=times, minlength=self._number_of_states)
+        
         return t_transitions
 
     def likelihood(
@@ -232,22 +232,19 @@ class MarkovContinous():
         float
             Log-likelihood
         """
-        
+        # Create an array where each entry corresponds to the probability of transitioning
+        # from one state to another over each possible time step.
         prob_matrix = np.array([self.transition_matrix_over_time(t) 
                                 for t in range(max(time) + 1)])
-                                
+        
+        # Select the relevant transition probabilities for each observed transition,
+        # based on the actual time elapsed for each transition.
         prob_matrix_time = prob_matrix[time]
         
-        if self._is_transition_crescent:
-            prob_initial = prob_matrix_time[np.arange(len(initial)), initial - 1]
-            likelihoods = prob_initial[np.arange(len(final)), final - 1]
-        
-        else:
-            # Calculate likelihoods when transition matrix 
-            # is ordered opposite
-            pass
-            # ...
-        
+        # Calculate the probabilities of the observed transitions.
+        prob_initial = prob_matrix_time[np.arange(len(initial)), abs(initial - self.best_IC)]
+        likelihoods = prob_initial[np.arange(len(final)), abs(final - self.best_IC)]
+                
         log_likelihoods = np.log(likelihoods)
         
         return -log_likelihoods.sum()
@@ -283,7 +280,6 @@ class MarkovContinous():
             Log-likelihood
         """
         
-        theta[-1] = 0
         n_iter[0] += 1
         self.theta = theta
         
@@ -390,9 +386,6 @@ class MarkovContinous():
         initial, time, final = map(np.array, (initial, time, final))
         
         self._initial_guess_theta(initial, time, final)
-        
-        if not(self._is_transition_crescent):
-            self.theta = np.flip(self.theta)
         
         if self.verbose:
             print('prior likelihood = ', self.likelihood(initial, time, final))
