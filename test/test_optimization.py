@@ -257,20 +257,16 @@ class TestMultiIndicatorProblem(unittest.TestCase):
             filtered_actions = MultiIndicatorProblem.extract_indicator(key, actions)
             performance_models[key] = Performance(markov, filtered_actions)
 
-        time_horizon = 20
+        self.problem = MultiIndicatorProblem(performance_models, time_horizon=20)
 
-        self.problem = MultiIndicatorProblem(performance_models, time_horizon)
-
+        # Example binary action representation
         self.action_binary = np.array([0, 0] * 5)
-
-        self.action_binary[2] = 5 #year
-        self.action_binary[3] = 1 #action_1
-
-        self.action_binary[4] = 7 #year
-        self.action_binary[5] = 1 #action_1
-
-        self.action_binary[6] = 10 #year
-        self.action_binary[7] = 2 #action_2
+        self.action_binary[2] = 5  # Year
+        self.action_binary[3] = 1  # Action 1
+        self.action_binary[4] = 7  # Year
+        self.action_binary[5] = 1  # Action 1
+        self.action_binary[6] = 10 # Year
+        self.action_binary[7] = 2  # Action 2
 
     def test_decode_solution(self):
         actions = self.problem._decode_solution(np.array([0, 0] * 5))

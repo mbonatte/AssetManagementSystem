@@ -63,6 +63,10 @@ class Performance():
                                                 dtype = int)
         self.Q = self.deterioration_model.intensity_matrix
         self.standard_transition_matrix = expm(self.Q)
+        
+        self.last_intervention = {"time": 0,
+                                  "duration": 0,
+                                  "reduction": 1}
 
     def get_action(self, time) -> List:
         return self.actions_schedule.get(str(time), None)

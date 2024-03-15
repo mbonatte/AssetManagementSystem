@@ -140,6 +140,32 @@ class TestPerformance(unittest.TestCase):
         self.performance = Performance(markov,
                                        action)
                                        
+    
+    def test_get_action(self):
+        # Test the get_action method with different time inputs
+        # Example:
+        self.performance._set_actions_schedule({'10': 'action1', '20': 'action2'})
+        self.assertEqual(self.performance.get_action(10), 'action1')
+        self.assertIsNone(self.performance.get_action(5))
+    
+    def test_get_reduction_factor(self):
+        sample = Sample()
+        
+        sample.timeOfReduction = 5
+        sample.rateOfReduction = 0.8
+        
+        interventions = {10: sample}
+        
+        reduction_factor_1 = self.performance.get_reduction_factor(interventions, 1)
+        reduction_factor_10 = self.performance.get_reduction_factor(interventions, 10)
+        reduction_factor_14 = self.performance.get_reduction_factor(interventions, 14)
+        reduction_factor_15 = self.performance.get_reduction_factor(interventions, 15)
+        
+        self.assertEqual(reduction_factor_1, 1)
+        self.assertEqual(reduction_factor_10, 0.8)
+        self.assertEqual(reduction_factor_14, 0.8)
+        self.assertEqual(reduction_factor_15, 1)
+    
     def test_get_improved_IC(self):
         self.assertEqual(self.performance.get_improved_IC(10, 0),
                          10)
