@@ -410,17 +410,16 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
                     number_of_samples=self.number_of_samples)
                 for key, model in self.performance_models.items()}
 
-
 class NetworkProblem(Problem):
     """
     Network optimization problem.
     
     In the network optimization, each element of the population represents the
-    index of the solution in the Pareto set obtained by section optimization,
-    with position in the population referring to the corresponding pavement section 
-    in the road network. For instance, the population [3 5 2 7 6 1 2 5 4 9] encodes 
-    that the third solution from the Pareto set must be used for the first section, 
-    whereas for the second section the fifth solution must be implemented, and so on.
+    index of the solution in the Pareto set obtained by asset optimization,
+    with position in the population referring to the corresponding asset. 
+    For instance, the population [3 5 2 7 6 1 2 5 4 9] encodes 
+    that the third solution from the Pareto set must be used for the first asset, 
+    whereas for the second asset the fifth solution must be implemented, and so on.
     """
 
     def __init__(self, section_optimization, **kwargs):

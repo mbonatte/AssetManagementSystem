@@ -6,8 +6,7 @@ from ams.prediction.markov import MarkovContinous
 
 from ams.performance.performance import Performance
 
-from ams.optimization.problem import MaintenanceSchedulingProblem, MultiIndicatorProblem
-from ams.optimization.multi_objective_optimization import Multi_objective_optimization
+from ams.optimization.problem import MaintenanceSchedulingProblem, MultiIndicatorProblem, NetworkProblem
    
 class TestMaintenanceSchedulingProblem(unittest.TestCase):
 
@@ -250,7 +249,6 @@ class TestMultiIndicatorProblem(unittest.TestCase):
         self.assertAlmostEqual(max_indicator['Skid_Resistance'], 3.4, delta=1e-5)
         self.assertAlmostEqual(max_indicator['Transverse_Evenness'], 2.2, delta=1e-5)
 
-
     def test_evaluate(self):
         out = {}
         random.seed(1)
@@ -259,6 +257,213 @@ class TestMultiIndicatorProblem(unittest.TestCase):
         self.assertAlmostEqual(out['F'][0][0], 52.5, delta=1e-5)
         self.assertAlmostEqual(out['F'][1][0], 16.0243, places=3)  
 
+class TestNetworkProblem(unittest.TestCase):
+
+    def setUp(self):        
+        section_optimization = {
+            "Asset_1": {
+                "Performance": [
+                    20,
+                    50,
+                    100
+                ],
+                "Cost": [
+                    60,
+                    40,
+                    10
+                ],
+                "Actions_schedule": [
+                    {
+                        "15": "Corrective",
+                        "30": "Corrective"
+                    },
+                    {
+                        "10": "Preventive",
+                        "30": "Corrective"
+                    },
+                    {
+                        "20": "Preventive"
+                    }
+                ],
+            },
+            "Asset_2": {
+                "Performance": [
+                    20,
+                    50,
+                    100
+                ],
+                "Cost": [
+                    60,
+                    40,
+                    10
+                ],
+                "Actions_schedule": [
+                    {
+                        "15": "Corrective",
+                        "30": "Corrective"
+                    },
+                    {
+                        "10": "Preventive",
+                        "30": "Corrective"
+                    },
+                    {
+                        "20": "Preventive"
+                    }
+                ],
+            },
+            "Asset_3": {
+                "Performance": [
+                    20,
+                    50,
+                    100
+                ],
+                "Cost": [
+                    60,
+                    40,
+                    10
+                ],
+                "Actions_schedule": [
+                    {
+                        "15": "Corrective",
+                        "30": "Corrective"
+                    },
+                    {
+                        "10": "Preventive",
+                        "30": "Corrective"
+                    },
+                    {
+                        "20": "Preventive"
+                    }
+                ],
+            },
+            "Asset_4": {
+                "Performance": [
+                    20,
+                    50,
+                    100
+                ],
+                "Cost": [
+                    60,
+                    40,
+                    10
+                ],
+                "Actions_schedule": [
+                    {
+                        "15": "Corrective",
+                        "30": "Corrective"
+                    },
+                    {
+                        "10": "Preventive",
+                        "30": "Corrective"
+                    },
+                    {
+                        "20": "Preventive"
+                    }
+                ],
+            },
+            "Asset_5": {
+                "Performance": [
+                    20,
+                    50,
+                    100
+                ],
+                "Cost": [
+                    60,
+                    40,
+                    10
+                ],
+                "Actions_schedule": [
+                    {
+                        "15": "Corrective",
+                        "30": "Corrective"
+                    },
+                    {
+                        "10": "Preventive",
+                        "30": "Corrective"
+                    },
+                    {
+                        "20": "Preventive"
+                    }
+                ],
+            },
+        }
+        
+        self.problem = NetworkProblem(section_optimization)
+        
+    def test_calc_network_budget(self):
+        population = [1, 1, 1, 1, 1]
+        network_cost = self.problem._calc_network_budget(population)
+        self.assertEqual(200, network_cost)
+    
+        population = [1, 0, 0, 1, 1]
+        network_cost = self.problem._calc_network_budget(population)
+        self.assertEqual(240, network_cost)
+        
+        population = [2, 2, 2, 2, 2]
+        network_cost = self.problem._calc_network_budget(population)
+        self.assertEqual(50, network_cost)
+        
+    def test_calc_network_budget_pop(self):
+        population = [[1, 1, 1, 1, 1],
+                      [1, 0, 0, 1, 1],
+                      [2, 2, 2, 2, 2]
+                      ]
+        
+        network_costs = self.problem._calc_network_budget_pop(population)
+        np.testing.assert_array_equal(network_costs,[200,240,50])
+        
+    def test_calc_network_performance_indicator(self):
+        population = [1, 1, 1, 1, 1]
+        network_indicator = self.problem._calc_network_performance_indicator(population)
+        self.assertEqual(50, network_indicator)
+    
+        population = [1, 0, 0, 1, 1]
+        network_indicator = self.problem._calc_network_performance_indicator(population)
+        self.assertEqual(38, network_indicator)
+        
+        population = [2, 2, 2, 2, 2]
+        network_indicator = self.problem._calc_network_performance_indicator(population)
+        self.assertEqual(100, network_indicator)
+        
+    def test_calc_network_performance_indicator_pop(self):
+        population = [[1, 1, 1, 1, 1],
+                      [1, 0, 0, 1, 1],
+                      [2, 2, 2, 2, 2]
+                      ]
+        
+        network_indicators = self.problem._calc_network_performance_indicator_pop(population)
+        np.testing.assert_array_equal(network_indicators,[50,  38, 100])
+    
+    
+    def test_evaluate(self):
+        population = [1, 1, 1, 1, 1]
+        out = {}
+        
+        self.problem._evaluate([population], out)
+        
+        self.assertEqual(out['F'][0][0], 50)
+        self.assertEqual(out['F'][1][0], 200)
+        
+        #########################################
+        
+        population = [1, 0, 0, 1, 1]
+        out = {}
+        
+        self.problem._evaluate([population], out)
+        
+        self.assertEqual(out['F'][0][0], 38)
+        self.assertEqual(out['F'][1][0], 240)
+        
+        #########################################
+        
+        population =  [2, 2, 2, 2, 2]
+        out = {}
+        
+        self.problem._evaluate([population], out)
+        
+        self.assertEqual(out['F'][0][0], 100)
+        self.assertEqual(out['F'][1][0], 50)
+ 
    
 if __name__ == '__main__':
     unittest.main()
