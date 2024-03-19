@@ -79,6 +79,16 @@ class TestMaintenanceSchedulingProblem(unittest.TestCase):
         area_under_curve = self.problem._calc_area_under_curve([performance])[0]
         expected_area = 50.6  # Expected area value based on the performance model
         self.assertAlmostEqual(area_under_curve, expected_area, delta=1e-5)
+        
+    def test_calc_area_under_curve_with_different_initial_IC(self):
+        # Testing the area under the curve calculation
+        random.seed(1)
+        self.problem.initial_IC = 3
+        performance = self.problem._evaluate_performance([self.action_binary])[0]
+        area_under_curve = self.problem._calc_area_under_curve([performance])[0]
+        expected_area = 65.4  # Expected area value based on the performance model
+        self.assertAlmostEqual(area_under_curve, expected_area, delta=1e-5)
+        self.problem.initial_IC = None # Reset value
     
     def test_calc_max_indicator(self):
         # Testing the maximum indicator calculation
@@ -190,6 +200,35 @@ class TestMultiIndicatorProblem(unittest.TestCase):
         self.assertAlmostEqual(area_under_curve['Skid_Resistance'], 52.5, delta=1e-5)
         self.assertAlmostEqual(area_under_curve['Transverse_Evenness'], 30, delta=1e-5)
 
+    def test_calc_area_under_curve_with_different_initial_ICs(self):
+        self.problem.initial_ICs = {'Bearing_Capacity':3,
+                                    'Cracking':1,
+                                    'Longitudinal_Evenness':2,
+                                    'Skid_Resistance':2,
+                                    'Transverse_Evenness':3,
+                                    }
+        random.seed(1)
+        performance = self.problem._evaluate_performance([np.array([0, 0] * 5)])[0]
+        area_under_curve = self.problem._calc_area_under_curve([performance])[0]
+
+        self.assertAlmostEqual(area_under_curve['Bearing_Capacity'], 65, delta=1e-5)
+        self.assertAlmostEqual(area_under_curve['Cracking'], 40., delta=1e-5)
+        self.assertAlmostEqual(area_under_curve['Longitudinal_Evenness'],  50.9, delta=1e-5)
+        self.assertAlmostEqual(area_under_curve['Skid_Resistance'], 68.2, delta=1e-5)
+        self.assertAlmostEqual(area_under_curve['Transverse_Evenness'], 76.6, delta=1e-5)
+
+        random.seed(1)
+        performance = self.problem._evaluate_performance([self.action_binary])[0]
+        area_under_curve = self.problem._calc_area_under_curve([performance])[0]
+
+        self.assertAlmostEqual(area_under_curve['Bearing_Capacity'], 65, delta=1e-5)
+        self.assertAlmostEqual(area_under_curve['Cracking'], 33.9, delta=1e-5)
+        self.assertAlmostEqual(area_under_curve['Longitudinal_Evenness'], 48.4, delta=1e-5)
+        self.assertAlmostEqual(area_under_curve['Skid_Resistance'], 71.9, delta=1e-5)
+        self.assertAlmostEqual(area_under_curve['Transverse_Evenness'], 51.8, delta=1e-5)
+        
+        self.problem.initial_ICs = {}
+    
     def test_calc_max_indicator(self):
         random.seed(1)
         performance = self.problem._evaluate_performance([np.array([0, 0] * 5)])[0]

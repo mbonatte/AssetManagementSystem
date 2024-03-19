@@ -20,19 +20,21 @@ class MaintenanceSchedulingProblem(Problem):
     Maintenance scheduling optimization problem.
     """
 
-    def __init__(self, performance_model, time_horizon, max_actions=5, discount_rate=0.01, number_of_samples=10, **kwargs):
+    def __init__(self, performance_model, time_horizon, initial_IC=None, max_actions=5, discount_rate=0.01, number_of_samples=10, **kwargs):
         """
         Initialize the maintenance scheduling problem.
 
         Args:
             performance_model (Performance): Performance deterioration/maintenance model.
             time_horizon (int): Planning horizon.
+            initial_IC : The initial condition index.
             max_actions (int): Maximum number of actions.
             discount_rate (float): Discount rate for cost calculation.
             number_of_samples (int): Number of samples for performance calculation.
         """
         self.time_horizon = time_horizon
         self.performance_model = performance_model
+        self.initial_IC = initial_IC
         self.actions = self.performance_model.action_effects
         
         self.discount_rate = discount_rate
@@ -137,9 +139,10 @@ class MaintenanceSchedulingProblem(Problem):
             list: Performance indicator values over time.
         """
         return self.performance_model.get_IC_over_time(
-            time_horizon=self.time_horizon,
-            actions_schedule=action_schedule,
-            number_of_samples=self.number_of_samples
+            time_horizon = self.time_horizon,
+            initial_IC = self.initial_IC,
+            actions_schedule = action_schedule,
+            number_of_samples = self.number_of_samples
         )
 
     def _calc_budget(self, xs):
@@ -244,7 +247,7 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         
         return final_data
     
-    def __init__(self, performance_models, time_horizon, max_actions=5, discount_rate=0.01, number_of_samples=10, **kwargs):
+    def __init__(self, performance_models, time_horizon, initial_ICs={}, max_actions=5, discount_rate=0.01, number_of_samples=10, **kwargs):
         """
         Initialize the multi-indicator maintenance scheduling problem.
 
@@ -256,6 +259,7 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         """
         self.time_horizon = time_horizon
         self.performance_models = performance_models
+        self.initial_ICs = initial_ICs
         
         self.actions = {name: action for model in performance_models.values() for name, action in model.action_effects.items()}
         
@@ -401,6 +405,7 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         """
         return {key: model.get_IC_over_time(
                     time_horizon=self.time_horizon,
+                    initial_IC=self.initial_ICs.get(key, None),
                     actions_schedule=action_schedule,
                     number_of_samples=self.number_of_samples)
                 for key, model in self.performance_models.items()}
