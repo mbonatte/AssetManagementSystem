@@ -374,7 +374,6 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         
         return np.array([sum(performance) for performance in performances_list])
     
-    
     def _calc_max_indicator(self, performances_list):
         """
         Calculate the maximum performance indicator for each indicator in the population.
