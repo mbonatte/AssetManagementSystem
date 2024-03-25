@@ -248,7 +248,28 @@ class TestMultiIndicatorProblem(unittest.TestCase):
         self.assertAlmostEqual(max_indicator['Longitudinal_Evenness'], 2.2, delta=1e-5)
         self.assertAlmostEqual(max_indicator['Skid_Resistance'], 3.4, delta=1e-5)
         self.assertAlmostEqual(max_indicator['Transverse_Evenness'], 2.2, delta=1e-5)
+    
+    def test_calc_max_indicators(self):
+        random.seed(1)
+        performance = self.problem._evaluate_performance([np.array([0, 0] * 5)])[0]
+        indicators_diff = self.problem._calc_max_indicators([performance])
+        
+        self.assertAlmostEqual(indicators_diff[0][0], -3.7, delta=1e-5)
+        self.assertAlmostEqual(indicators_diff[1][0], -2, delta=1e-5)
+        self.assertAlmostEqual(indicators_diff[2][0], -2.7, delta=1e-5)
+        self.assertAlmostEqual(indicators_diff[3][0], -1.2, delta=1e-5)
+        self.assertAlmostEqual(indicators_diff[4][0], -2.2, delta=1e-5)
 
+        random.seed(1)
+        performance = self.problem._evaluate_performance([self.action_binary])[0]
+        indicators_diff = self.problem._calc_max_indicators([performance])
+
+        self.assertAlmostEqual(indicators_diff[0][0], -3.7, delta=1e-5)
+        self.assertAlmostEqual(indicators_diff[1][0], -2.3, delta=1e-5)
+        self.assertAlmostEqual(indicators_diff[2][0], -2.8, delta=1e-5)
+        self.assertAlmostEqual(indicators_diff[3][0], -1.6, delta=1e-5)
+        self.assertAlmostEqual(indicators_diff[4][0], -2.8, delta=1e-5)
+    
     def test_evaluate(self):
         out = {}
         random.seed(1)

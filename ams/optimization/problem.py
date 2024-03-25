@@ -4,12 +4,11 @@ Created on Sep 21, 2022.
 @author: MauricioBonatte
 @e-mail: mbonatte@ymail.com
 """
+from typing import List, Dict, Optional, Any
 
 from pymoo.core.problem import Problem
 from pymoo.core.problem import ElementwiseProblem
 
-from ams.prediction.markov import MarkovContinous
-from ams.performance.maintenance import ActionEffect
 from ams.performance.performance import Performance
 
 import numpy as np
@@ -20,7 +19,7 @@ class MaintenanceSchedulingProblem(Problem):
     Maintenance scheduling optimization problem.
     """
 
-    def __init__(self, performance_model, time_horizon, initial_IC=None, max_actions=5, discount_rate=0.01, number_of_samples=10, **kwargs):
+    def __init__(self, performance_model: Performance, time_horizon: int, initial_IC: int=None, max_actions:int=5, discount_rate:float=0.01, number_of_samples:int=10, **kwargs):
         """
         Initialize the maintenance scheduling problem.
 
@@ -218,36 +217,28 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
     """
     
     @staticmethod
-    def extract_indicator(indicator, actions):
+    def extract_indicator(indicator: str, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Extracts specified indicators from a collection of actions.
 
-        Args:
+        Parameters:
             indicator (str): The indicator to be extracted.
-            actions (list): List of action dictionaries containing the indicators.
+            actions (List[Dict[str, Any]]): List of action dictionaries containing the indicators.
 
         Returns:
-            list: List of dictionaries with extracted indicator data.
+            List[Dict[str, Any]]: List of dictionaries with extracted indicator data.
         """
-        final_data = []
-
-        for data in actions:
-            pi_data = data.get(indicator)
-            if pi_data is None:
-                continue
-            
-            # Create the new dictionary with the desired structure
-            extracted_data = {
-                "name": data.get("name"),
-                "cost": data.get("cost"),
-                **{key: pi_data[key] for key in ["time_of_reduction", "reduction_rate", "improvement"] if key in pi_data}
-            }            
-            
-            final_data.append(extracted_data)
-        
-        return final_data
+        return [
+            {
+                "name": action.get("name"),
+                "cost": action.get("cost"),
+                **{key: indicator_data[key] for key in ["time_of_reduction", "reduction_rate", "improvement"]
+                   if key in indicator_data}
+            }
+            for action in actions if (indicator_data := action.get(indicator)) is not None
+        ]
     
-    def __init__(self, performance_models, time_horizon, initial_ICs={}, max_actions=5, discount_rate=0.01, number_of_samples=10, **kwargs):
+    def __init__(self, performance_models: Dict[str, Performance], time_horizon: int, initial_ICs: Dict[str, int]=None, max_actions: int=5, discount_rate: float=0.01, number_of_samples: int=10, **kwargs):
         """
         Initialize the multi-indicator maintenance scheduling problem.
 
@@ -259,33 +250,34 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         """
         self.time_horizon = time_horizon
         self.performance_models = performance_models
-        self.initial_ICs = initial_ICs
+        self.initial_ICs = initial_ICs or {}
         
         self.actions = {name: action for model in performance_models.values() for name, action in model.action_effects.items()}
         
         self.number_of_samples = number_of_samples
-        
         self.discount_rate = discount_rate
         
         # Constrains
         self.max_budget = np.inf
-        self.max_indicator = np.inf
+        self.max_global_indicator = np.inf
+        self.single_indicators_constraint = {key: model.deterioration_model.worst_IC for key, model in self.performance_models.items()}
+        number_of_inequality_constraints = 2 + len(self.single_indicators_constraint)
         
         num_actions_database = len(self.actions)
         n_var = max_actions * 2  # "time" and "action"
         
-        xl = max_actions * [0, 0]
-        xu = max_actions * [self.time_horizon, num_actions_database - 1]
+        xl = [0] * n_var
+        xu = [self.time_horizon if i % 2 == 0 else num_actions_database - 1 for i in range(n_var)]
         
         Problem.__init__(self,
             n_var=n_var,
             n_obj=2,
-            n_ieq_constr=2,
+            n_ieq_constr=number_of_inequality_constraints,
             xl=xl,
             xu=xu,
             vtype=int,
             **kwargs
-            )
+        )
 
     def _evaluate(self, x, out, *args, **kwargs):
         """
@@ -309,23 +301,26 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         out["F"] = [f1, f2]
 
         #Constraints
-        #Maximum number of interventions
+        #Maximum budget
         g1 = f2 - self.max_budget
         
         #Maximum indicator
-        g2 = self._calc_max_global_indicator(performances) - self.max_indicator
+        g2 = self._calc_max_global_indicator(performances) - self.max_global_indicator
         
-        out["G"] = [g1, g2]
+        #Maximum Single indicators
+        g_indicators = self._calc_max_indicators(performances)
         
-    def _evaluate_performance(self, xs):
+        out["G"] = [g1, g2] + g_indicators
+        
+    def _evaluate_performance(self, xs: List[int]) -> np.ndarray:
         """
         Calculate performance for each solution in the population.
 
-        Args:
-            xs (list): List of solutions to evaluate.
+        Parameters:
+            xs (List[int]): List of solutions to evaluate.
 
         Returns:
-            np.array: Array of performance values for each solution.
+            np.ndarray: Array of performance values for each solution.
         """
         return np.array([self._get_performances(self._decode_solution(x)) for x in xs])
     
@@ -353,6 +348,31 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         """
         results = self._calc_max_indicator(performances)
         return np.array([max(result.values()) for result in results])
+        
+    def _calc_max_indicators(self, performances):
+        """
+        Calculate the maximum indicators value for a set of performance values.
+
+        Args:
+            performances (list): List of {indicator: performance} dictionaries.
+
+        Returns:
+            np.array: Maximum global indicator value for each set of performance values.
+        """
+        # Pre-calculate the intersection of indicators in performances and the constraints
+        relevant_indicators = sorted(set(self.single_indicators_constraint))
+        
+        # Initialize a list to store the max values for each indicator, subtracted by the constraint.
+        max_indicators_diffs = []
+        
+        results = self._calc_max_indicator(performances)
+        
+        for result in results:
+            res = [result[key] - self.single_indicators_constraint[key] for key in relevant_indicators]
+            max_indicators_diffs.append(np.array(res))
+        
+        # Transpose the list of lists to align the constraints' diffs across all performances
+        return [indicator_diffs for indicator_diffs in zip(*max_indicators_diffs)]
     
     def _calc_area_under_curve(self, performances_list):
         """
