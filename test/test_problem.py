@@ -250,6 +250,10 @@ class TestMultiIndicatorProblem(unittest.TestCase):
         self.assertAlmostEqual(max_indicator['Transverse_Evenness'], 2.2, delta=1e-5)
     
     def test_calc_max_indicators(self):
+        self.problem.single_indicators_constraint = {key: model.deterioration_model.worst_IC 
+                                                     for key, model in self.problem.performance_models.items()
+                                                     }
+        
         random.seed(1)
         performance = self.problem._evaluate_performance([np.array([0, 0] * 5)])[0]
         indicators_diff = self.problem._calc_max_indicators([performance])

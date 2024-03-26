@@ -19,17 +19,19 @@ class MaintenanceSchedulingProblem(Problem):
     Maintenance scheduling optimization problem.
     """
 
-    def __init__(self, performance_model: Performance, time_horizon: int, initial_IC: int=None, max_actions:int=5, discount_rate:float=0.01, number_of_samples:int=10, **kwargs):
+    def __init__(self, performance_model: Performance, time_horizon: int, initial_IC: Optional[int] = None,
+                 max_actions: int = 5, discount_rate: float = 0.01, number_of_samples: int = 10, **kwargs):
         """
         Initialize the maintenance scheduling problem.
 
-        Args:
+        Parameters:
             performance_model (Performance): Performance deterioration/maintenance model.
             time_horizon (int): Planning horizon.
-            initial_IC : The initial condition index.
-            max_actions (int): Maximum number of actions.
-            discount_rate (float): Discount rate for cost calculation.
-            number_of_samples (int): Number of samples for performance calculation.
+            initial_IC (Optional[int]): The initial condition index. Defaults to None.
+            max_actions (int): Maximum number of actions. Defaults to 5.
+            discount_rate (float): Discount rate for cost calculation. Defaults to 0.01.
+            number_of_samples (int): Number of samples for performance calculation. Defaults to 10.
+            **kwargs: Additional keyword arguments.
         """
         self.time_horizon = time_horizon
         self.performance_model = performance_model
@@ -45,11 +47,11 @@ class MaintenanceSchedulingProblem(Problem):
         self.max_indicator = self.performance_model.deterioration_model.worst_IC
         
         # Total number of actions in the analysis
-        num_actions_database = len(self.actions)
         n_var = max_actions * 2 # 2 represents the binary ["time" and "action"]
         
+        # Define the lower and upper bounds for variables
         xl = max_actions * [0, 0]
-        xu = max_actions * [self.time_horizon, num_actions_database - 1]
+        xu = max_actions * [self.time_horizon, len(self.actions) - 1]
         
         super().__init__(
             n_var=n_var,
@@ -94,51 +96,51 @@ class MaintenanceSchedulingProblem(Problem):
         # Making negative values 0, keeping positive as is
         out["G"] = [np.where(array < 0, 0, array) for array in out["G"]]
         
-    def _evaluate_performance(self, xs):
+    def _evaluate_performance(self, xs: np.ndarray) -> np.ndarray:
         """
         Calculate performance for each solution in the population.
 
-        Args:
-            xs (list): List of solutions to evaluate.
+        Parameters:
+            xs (np.ndarray): Array of solutions to evaluate.
 
         Returns:
-            np.array: Array of performance values for each solution.
+            np.ndarray: Array of performance values for each solution.
         """
         return np.array([self._get_performance(self._decode_solution(x)) for x in xs])
     
-    def _calc_area_under_curve(self, performances):
+    def _calc_area_under_curve(self, performances: np.ndarray) -> np.ndarray:
         """
         Calculate the area under the curve for each performance prediction.
 
-        Args:
-            performances (np.array): Array of performance values.
+        Parameters:
+            performances (np.ndarray): Array of performance values.
 
         Returns:
-            np.array: Area under the curve for each performance prediction.
+            np.ndarray: Area under the curve for each performance prediction.
         """
         return np.sum(performances, axis=1)
     
-    def _calc_max_indicator(self, performances):
+    def _calc_max_indicator(self, performances: np.ndarray) -> np.ndarray:
         """
         Calculate the maximum indicator value for a set of performance values.
 
-        Args:
-            performances (np.array): Array of performance values.
+        Parameters:
+            performances (np.ndarray): Array of performance values.
 
         Returns:
-            np.array: Maximum indicator value for each set of performance values.
+            np.ndarray: Maximum indicator value for each set of performance values.
         """
         return np.max(performances, axis=1)
     
-    def _get_performance(self, action_schedule):
+    def _get_performance(self, action_schedule: Dict[int, str]) -> List[float]:
         """
         Get the performance indicator over time for a given action schedule.
 
-        Args:
-            action_schedule (dict): Schedule of actions.
+        Parameters:
+            action_schedule (Dict[int, str]): Schedule of actions.
 
         Returns:
-            list: Performance indicator values over time.
+            List[float]: Performance indicator values over time.
         """
         return self.performance_model.get_IC_over_time(
             time_horizon = self.time_horizon,
@@ -147,36 +149,35 @@ class MaintenanceSchedulingProblem(Problem):
             number_of_samples = self.number_of_samples
         )
 
-    def _calc_budget(self, xs):
+    def _calc_budget(self, xs: np.ndarray) -> np.ndarray:
         """
         Calculate the maintenance budget for each solution in the population.
 
-        Args:
-            xs (list): List of solutions to evaluate.
+        Parameters:
+            xs (np.ndarray): Array of solutions to evaluate.
 
         Returns:
-            np.array: Maintenance budget for each solution.
+            np.ndarray: Maintenance budget for each solution.
         """
         return np.array([self._get_budget(self._decode_solution(x)) for x in xs])
 
-    def _get_budget(self, action_schedule):
+    def _get_budget(self, action_schedule: Dict[int, str]) -> float:
         """
         Calculate the total discounted budget for a given action schedule.
 
-        Args:
-            action_schedule (dict): Schedule of actions.
+        Parameters:
+            action_schedule (Dict[int, str]): Schedule of actions.
 
         Returns:
             float: Total discounted budget.
         """
-        budget = sum(self._get_action_cost(int(year), action) for year, action in action_schedule.items())
-        return budget
+        return sum(self._get_action_cost(int(year), action) for year, action in action_schedule.items())
         
-    def _get_action_cost(self, year, action):
+    def _get_action_cost(self, year: int, action: str) -> float:
         """
         Calculate the cost of an action, discounted to the present value.
 
-        Args:
+        Parameters:
             year (int): Year of the action.
             action (str): Action to be taken.
 
@@ -185,7 +186,7 @@ class MaintenanceSchedulingProblem(Problem):
         """
         return self.actions[action].cost / ((1.0 + self.discount_rate) ** year)
     
-    def _get_number_of_interventions(self, solution):
+    def _get_number_of_interventions(self, solution: List[int]) -> int:
         """
         Count the number of maintenance interventions in a solution.
 
@@ -198,21 +199,18 @@ class MaintenanceSchedulingProblem(Problem):
         action_schedule = self._decode_solution(solution)
         return sum(1 for action in action_schedule.values() if action != 'DoNothing')
 
-    def _decode_solution(self, solution):
+    def _decode_solution(self, solution: List[int]) -> Dict[str, str]:
         """
-        Decode a binary solution into a schedule of actions.
+        Decodes a flattened solution list into a schedule of actions.
 
         Args:
-            solution (list): Binary solution to decode.
+            solution (List[int]): The solution list to decode.
 
         Returns:
-            dict: Schedule of actions derived from the solution.
+            Dict[str, str]: A dictionary representing the schedule of actions.
         """
-        actions_schedule = {}
-        for year, action in solution.reshape(-1, 2):
-            if action != 0:  # Excluding 'DoNothing' action
-                actions_schedule[str(year)] = list(self.actions)[action]
-        return dict(sorted(actions_schedule.items()))
+        action_names = list(self.actions)
+        return {str(year): action_names[action] for year, action in solution.reshape(-1, 2) if action}
 
 class MultiIndicatorProblem(MaintenanceSchedulingProblem):
     """
@@ -241,7 +239,8 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
             for action in actions if (indicator_data := action.get(indicator)) is not None
         ]
     
-    def __init__(self, performance_models: Dict[str, Performance], time_horizon: int, initial_ICs: Dict[str, int]=None, max_actions: int=5, discount_rate: float=0.01, number_of_samples: int=10, **kwargs):
+    def __init__(self, performance_models: Dict[str, Performance], time_horizon: int, initial_ICs: Dict[str, int] = None,
+                 max_actions: int = 5, discount_rate: float = 0.01, number_of_samples: int = 10, **kwargs):
         """
         Initialize the multi-indicator maintenance scheduling problem.
 
@@ -251,20 +250,20 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
             discount_rate (float): Discount rate for cost calculation.
             number_of_samples (int): Number of samples for performance calculation.
         """
-        self.time_horizon = time_horizon
         self.performance_models = performance_models
         self.initial_ICs = initial_ICs or {}
-        
         self.actions = {name: action for model in performance_models.values() for name, action in model.action_effects.items()}
+        
+        self.time_horizon = time_horizon
         
         self.number_of_samples = number_of_samples
         self.discount_rate = discount_rate
         
         # Constrains
+        budget_and_global_constrains = 2
         self.max_budget = np.inf
         self.max_global_indicator = np.inf
-        self.single_indicators_constraint = {key: model.deterioration_model.worst_IC for key, model in self.performance_models.items()}
-        number_of_inequality_constraints = 2 + len(self.single_indicators_constraint)
+        self.single_indicators_constraint = {}
         
         num_actions_database = len(self.actions)
         n_var = max_actions * 2  # "time" and "action"
@@ -275,12 +274,24 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         Problem.__init__(self,
             n_var=n_var,
             n_obj=2,
-            n_ieq_constr=number_of_inequality_constraints,
+            n_ieq_constr=budget_and_global_constrains,
             xl=xl,
             xu=xu,
             vtype=int,
             **kwargs
         )
+        
+    
+    @property
+    def single_indicators_constraint(self):
+        return self._single_indicators_constraint
+    
+    @single_indicators_constraint.setter
+    def single_indicators_constraint(self, constrains: Dict[str, int]):
+        self._single_indicators_constraint = constrains
+        budget_and_global = 2
+        self.n_ieq_constr = budget_and_global + len(self.single_indicators_constraint)
+        
 
     def _evaluate(self, x, out, *args, **kwargs):
         """
@@ -382,6 +393,29 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         # Transpose the list of lists to align the constraints' diffs across all performances
         return [indicator_diffs for indicator_diffs in zip(*max_indicators_diffs)]
     
+    def _calc_performance_metrics(self, performances_list, operation):
+        """
+        Calculate performance metrics (either area under the curve or maximum indicator)
+        for each indicator in the population.
+
+        Parameters:
+            performances_list (list): List of {indicator: performance} dictionaries.
+            operation (str): Operation to perform ('auc' for area under the curve or 'max' for maximum value).
+
+        Returns:
+            np.array: Calculated metric for each indicator/solution.
+        """
+        result_list = []
+        for performances in performances_list:
+            result_dict = {}
+            for key, performance in performances.items():
+                if operation == 'auc':
+                    result_dict[key] = sum(performance)
+                elif operation == 'max':
+                    result_dict[key] = max(performance)
+            result_list.append(result_dict)
+        return np.array(result_list)
+    
     def _calc_area_under_curve(self, performances_list):
         """
         Calculate area under the curve for each indicator in the population.
@@ -392,13 +426,7 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         Returns:
             np.array: Area under the curve for each indicator/solution.
         """
-        result_list = []
-        for performances in performances_list:
-            result_dict = {}
-            for key, performance in performances.items():
-                result_dict[key] = sum(performance)
-            result_list.append(result_dict)
-        return np.array(result_list)
+        return self._calc_performance_metrics(performances_list, 'auc')
     
     def _calc_max_indicator(self, performances_list):
         """
@@ -410,13 +438,7 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         Returns:
             np.array: Maximum indicator for each indicator/solution.
         """
-        result_list = []
-        for performances in performances_list:
-            result_dict = {}
-            for key, performance in performances.items():
-                result_dict[key] = max(performance)
-            result_list.append(result_dict)
-        return np.array(result_list)
+        return self._calc_performance_metrics(performances_list, 'max')
     
     def _get_performances(self, action_schedule):
         """

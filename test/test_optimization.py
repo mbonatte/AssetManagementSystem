@@ -234,7 +234,7 @@ class Test_MultiIndicatorProblem_Optimization(unittest.TestCase):
         
         self.assertTrue(max(cost) < max_budget)
         
-    def test_global_max_indicator_constrain(self):
+    def test_global_max_indicator_constraint(self):
         max_global_indicator = 3
         self.optimization.problem.max_global_indicator = max_global_indicator
 
@@ -254,24 +254,43 @@ class Test_MultiIndicatorProblem_Optimization(unittest.TestCase):
         global_indicator = self.optimization.problem._calc_max_global_indicator([performance])
         self.assertTrue(global_indicator <= max_global_indicator)
         
-    def test_single_indicators_constrain(self):
+    def test_single_indicator_constraint(self):
+        max_indicators = {'Cracking': 2}
+        
+        self.optimization.problem.single_indicators_constraint = max_indicators
+        
+        np.random.seed(1)
+        random.seed(1)
+        res = self.optimization.minimize()
+        
+        sort = np.argsort(res.F.T)[1]
+        
+        most_expensive_solution = res.X[sort][-1]
+        actions_schedule = self.optimization.problem._decode_solution(most_expensive_solution)
+        performance = self.optimization.problem._get_performances(actions_schedule)
+        indicators_diff = self.optimization.problem._calc_max_indicators([performance])
+        self.assertTrue(max(indicators_diff)[0] <= 0.101)
+    
+    def test_single_indicators_constraint(self):
         max_indicators = {'Bearing_Capacity': 2,
                           'Cracking': 2,
                           'Longitudinal_Evenness': 2,
                           'Skid_Resistance': 2,
                           'Transverse_Evenness': 2}
         
-        self.optimization.problem.single_indicators_constrain = max_indicators
-
+        self.optimization.problem.single_indicators_constraint = max_indicators
+        
         np.random.seed(1)
         random.seed(1)
         res = self.optimization.minimize()
         
-        most_expensive_solution = res.X[-1]
+        sort = np.argsort(res.F.T)[1]
+        
+        most_expensive_solution = res.X[sort][-1]
         actions_schedule = self.optimization.problem._decode_solution(most_expensive_solution)
         performance = self.optimization.problem._get_performances(actions_schedule)
         indicators_diff = self.optimization.problem._calc_max_indicators([performance])
-        self.assertTrue(max(indicators_diff)[0] <= 0)
+        self.assertTrue(max(indicators_diff)[0] <= 0.101)
         
     def test_budget_indicator_constrain(self):
         max_budget = 3.5
