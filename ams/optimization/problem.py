@@ -91,6 +91,9 @@ class MaintenanceSchedulingProblem(Problem):
         
         out["G"] = [g1, g2]
         
+        # Making negative values 0, keeping positive as is
+        out["G"] = [np.where(array < 0, 0, array) for array in out["G"]]
+        
     def _evaluate_performance(self, xs):
         """
         Calculate performance for each solution in the population.
@@ -307,10 +310,15 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
         #Maximum indicator
         g2 = self._calc_max_global_indicator(performances) - self.max_global_indicator
         
+        out["G"] = [g1, g2]
+        
+        # Making negative values 0, keeping positive as is
+        out["G"] = [np.where(array < 0, 0, array) for array in out["G"]]
+        
         #Maximum Single indicators
         g_indicators = self._calc_max_indicators(performances)
         
-        out["G"] = [g1, g2] + g_indicators
+        out["G"] = out["G"] + g_indicators
         
     def _evaluate_performance(self, xs: List[int]) -> np.ndarray:
         """
@@ -391,8 +399,6 @@ class MultiIndicatorProblem(MaintenanceSchedulingProblem):
                 result_dict[key] = sum(performance)
             result_list.append(result_dict)
         return np.array(result_list)
-        
-        return np.array([sum(performance) for performance in performances_list])
     
     def _calc_max_indicator(self, performances_list):
         """

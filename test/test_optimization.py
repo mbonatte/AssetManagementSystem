@@ -106,7 +106,6 @@ class Test_MaintenanceSchedulingProblem_Optimization(unittest.TestCase):
         np.random.seed(2)
         random.seed(2)
         res = self.optimization.minimize()  
-        
         self.assertTrue(res.G[0][1] <= 0.3)
         cost = res.F.T[1]
         self.assertTrue(max(cost) < max_budget)
@@ -232,7 +231,7 @@ class Test_MultiIndicatorProblem_Optimization(unittest.TestCase):
         res = self.optimization.minimize()        
 
         cost = res.F.T[1]
-
+        
         self.assertTrue(max(cost) < max_budget)
         
     def test_global_max_indicator_constrain(self):
@@ -246,14 +245,14 @@ class Test_MultiIndicatorProblem_Optimization(unittest.TestCase):
         most_expensive_solution = res.X[-1]
         actions_schedule = self.optimization.problem._decode_solution(most_expensive_solution)
         performance = self.optimization.problem._get_performances(actions_schedule)
-        max_global_indicator = self.optimization.problem._calc_max_global_indicator([performance])
-        self.assertTrue(max_global_indicator <= 3)
+        global_indicator = self.optimization.problem._calc_max_global_indicator([performance])
+        self.assertTrue(global_indicator <= max_global_indicator)
         
         cheapest_solution = res.X[0]
         actions_schedule = self.optimization.problem._decode_solution(cheapest_solution)
         performance = self.optimization.problem._get_performances(actions_schedule)
-        max_global_indicator = self.optimization.problem._calc_max_global_indicator([performance])
-        self.assertTrue(max_global_indicator <= 3)
+        global_indicator = self.optimization.problem._calc_max_global_indicator([performance])
+        self.assertTrue(global_indicator <= max_global_indicator)
         
     def test_single_indicators_constrain(self):
         max_indicators = {'Bearing_Capacity': 2,
@@ -266,13 +265,13 @@ class Test_MultiIndicatorProblem_Optimization(unittest.TestCase):
 
         np.random.seed(1)
         random.seed(1)
-        res = self.optimization.minimize()  
+        res = self.optimization.minimize()
         
         most_expensive_solution = res.X[-1]
         actions_schedule = self.optimization.problem._decode_solution(most_expensive_solution)
         performance = self.optimization.problem._get_performances(actions_schedule)
         indicators_diff = self.optimization.problem._calc_max_indicators([performance])
-        self.assertTrue(max(indicators_diff)[0] <= 0.11)
+        self.assertTrue(max(indicators_diff)[0] <= 0)
         
     def test_budget_indicator_constrain(self):
         max_budget = 3.5
