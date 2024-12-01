@@ -6,6 +6,7 @@ Created on Sep 21, 2022.
 """
 
 from .maintenance import ActionEffect
+from .hazard_effects import HazardEffect
 
 import numpy as np
 from multiprocessing import Pool
@@ -50,10 +51,15 @@ class Sample():
 
 
 class Performance():
-    def __init__(self, deterioration_model, maintenance_actions):
+    def __init__(self, deterioration_model, maintenance_actions, hazard_data=None):
         self.deterioration_model = deterioration_model
         self.actions_schedule = {}
         self.action_effects = ActionEffect.set_action_effects(maintenance_actions)
+
+        if hazard_data:
+            self.hazard_effects = HazardEffect.set_hazard_effects(hazard_data)
+        else:
+            self.hazard_effects = HazardEffect.set_hazard_effects({})
         
         self.list_of_possible_ICs = np.linspace(start = self.deterioration_model.best_IC,
                                                 stop = self.deterioration_model.worst_IC,
@@ -108,12 +114,18 @@ class Performance():
             return max(IC - improvement, self.deterioration_model.best_IC)
         else:
             return min(IC + improvement, self.deterioration_model.best_IC)
+        
+    def get_degradated_IC(self, IC, degradation):
+        if self.deterioration_model._is_transition_crescent:
+            return min(IC + degradation, self.deterioration_model.worst_IC)
+        else:
+            return max(IC - degradation, self.deterioration_model.worst_IC)
 
     def _get_next_IC(self,
                      current_state: int,
                      interventions: dict,
                      time: int,
-                     action):
+                     hazards):
         """
         Get the next state by unit time.
 
@@ -134,6 +146,14 @@ class Performance():
             DESCRIPTION.
 
         """
+        #hazard
+        hazard = hazards[time]
+        if hazard != 'No Damage':
+            return self.get_degradated_IC(
+                current_state,
+                self.hazard_effects[hazard].get_degradation(current_state)
+                )
+        
         # ação corretiva
         if interventions.get(time, None):
             if interventions[time].improvement:
@@ -181,6 +201,24 @@ class Performance():
         self.last_intervention['reduction'] = 1
 
    
+    def get_hazards(self, time_horizon):
+        hazard_data = {
+            "Damage": list(self.hazard_effects.keys()),
+            "Probability": [self.hazard_effects[effect].probability for effect in self.hazard_effects],
+        }
+
+        # Normalize probabilities
+        hazard_data['Probability'] = np.array(hazard_data['Probability']) / sum(hazard_data['Probability'])
+
+        # Perform random sampling
+        samples = np.random.choice(
+            hazard_data['Damage'],
+            p=hazard_data['Probability'],
+            size=time_horizon
+        )
+
+        return samples
+    
     def predict_MC(self,
                    time_horizon,
                    initial_IC):
@@ -193,6 +231,8 @@ class Performance():
         # I still need to get rid off the ´Sample´ class
         #interventions = [Sample() for _ in range(time_horizon)]
         interventions = {int(year): Sample() for year, action in self.actions_schedule.items()}
+
+        hazards = self.get_hazards(time_horizon)
         
         self.last_intervention = {"time": 0,
                                   "duration": 0,
@@ -210,7 +250,7 @@ class Performance():
             asset_condition[time] = self._get_next_IC(asset_condition[time-1],
                                                       interventions,
                                                       time,
-                                                      action)
+                                                      hazards)
         return asset_condition
 
     def get_IC_over_time(self,
