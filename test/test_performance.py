@@ -10,9 +10,9 @@ from ams.performance.performance import Performance, Sample
 class TestActionEffect(unittest.TestCase):
 
     def setUp(self):
-        number_of_states = 5
         name = 'test'
-        self.action = ActionEffect(name, number_of_states)
+        self.number_of_states = 5
+        self.action = ActionEffect(name)
         
         
     def test_get_effect(self):
@@ -22,7 +22,7 @@ class TestActionEffect(unittest.TestCase):
         # ################################################################
         
         a, b, c = 0, 4, 4
-        effect = {i:[a, b, c] for i in range(self.action.number_of_states)}
+        effect = {i:[a, b, c] for i in range(self.number_of_states)}
         self.action.set_improvement(effect)
         
         np.random.seed(1)
@@ -34,7 +34,7 @@ class TestActionEffect(unittest.TestCase):
         # ################################################################
         
         a, b, c = .7, .8, .9
-        effect = {i:[a, b, c] for i in range(self.action.number_of_states)}
+        effect = {i:[a, b, c] for i in range(self.number_of_states)}
         self.action.set_reduction_rate(effect)
         
         np.random.seed(1)
@@ -46,7 +46,7 @@ class TestActionEffect(unittest.TestCase):
         # ################################################################
         
         a, b, c = 4, 8, 9
-        effect = {i:[a, b, c] for i in range(self.action.number_of_states)}
+        effect = {i:[a, b, c] for i in range(self.number_of_states)}
         self.action.set_time_of_delay(effect)
         
         np.random.seed(1)
@@ -58,7 +58,7 @@ class TestActionEffect(unittest.TestCase):
         # ################################################################
         
         a, b, c = 2, 2, 9
-        effect = {i:[a, b, c] for i in range(self.action.number_of_states)}
+        effect = {i:[a, b, c] for i in range(self.number_of_states)}
         self.action.set_time_of_reduction(effect)
         
         np.random.seed(1)
@@ -69,28 +69,27 @@ class TestActionEffect(unittest.TestCase):
         
     def test_set_effect(self):
         effect = {i:[0, 4, 4]
-                  for i in range(self.action.number_of_states)}
+                  for i in range(self.number_of_states)}
         self.action.set_improvement(effect)
         self.assertEqual(self.action.improvement, effect)
         
         effect = {i:[0.8, 0.9, 1.1]
-                  for i in range(self.action.number_of_states)}
+                  for i in range(self.number_of_states)}
         self.action.set_reduction_rate(effect)
         self.assertEqual(self.action.reduction_rate, effect)
         
         effect = {i:[1, 1, 4]
-                  for i in range(self.action.number_of_states)}
+                  for i in range(self.number_of_states)}
         self.action.set_time_of_delay(effect)
         self.assertEqual(self.action.time_of_delay, effect)
         
         effect = {i:[7, 9, 10 ]
-                  for i in range(self.action.number_of_states)}
+                  for i in range(self.number_of_states)}
         self.action.set_time_of_reduction(effect)
         self.assertEqual(self.action.time_of_reduction, effect)
         
     def test_set_action_effects(self):
         name = 'test'
-        number_of_states = 5
         
         time_of_reduction = {
                                 2: [2, 2, 2],
@@ -106,8 +105,7 @@ class TestActionEffect(unittest.TestCase):
                   "time_of_reduction": time_of_reduction,
                   "reduction_rate": reduction_rate
         }]
-        action_effects = ActionEffect.set_action_effects(number_of_states,
-                                                         action)
+        action_effects = ActionEffect.set_action_effects(action)
         
         self.assertEqual(action_effects[name].time_of_reduction,
                                              time_of_reduction)

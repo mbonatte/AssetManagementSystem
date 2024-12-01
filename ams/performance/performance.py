@@ -53,9 +53,7 @@ class Performance():
     def __init__(self, deterioration_model, maintenance_actions):
         self.deterioration_model = deterioration_model
         self.actions_schedule = {}
-        self.action_effects = ActionEffect.set_action_effects(
-            deterioration_model._number_of_states,
-            maintenance_actions)
+        self.action_effects = ActionEffect.set_action_effects(maintenance_actions)
         
         self.list_of_possible_ICs = np.linspace(start = self.deterioration_model.best_IC,
                                                 stop = self.deterioration_model.worst_IC,

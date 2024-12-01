@@ -13,14 +13,14 @@ import numpy as np
 class ActionEffect():
     """Class for effects of maintenance actions."""
 
-    def set_action_effects(number_of_states: int, actions: Dict[str, Dict]
+    def set_action_effects(actions: Dict[str, Dict]
     ) -> Dict[str, 'ActionEffect']:
         """Create ActionEffect from dictionary."""
         
-        effects = {'DoNothing': ActionEffect('DoNothing', number_of_states)}
+        effects = {'DoNothing': ActionEffect('DoNothing')}
         
         for action in actions:
-            effect = ActionEffect(action['name'], number_of_states)
+            effect = ActionEffect(action['name'])
             
             for key in ['delay', 'improvement', 'time_of_reduction', 'reduction_rate']:
                 if key in action:
@@ -37,18 +37,17 @@ class ActionEffect():
             effects[effect.name] = effect
         return effects
 
-    def __init__(self, name: str, number_of_states: int) -> None:
+    def __init__(self, name: str) -> None:
         """Initialize ActionEffect."""
                  
         self.name = name
-        self.number_of_states = number_of_states
         self.cost = 0
         
         # Effects modeled as triangular distribution
-        self.time_of_delay = {}#[[0, 0, 0] for i in range(number_of_states)]
-        self.improvement = {}#[[0, 0, 0] for i in range(number_of_states)]
-        self.time_of_reduction = {}#[[0, 0, 0] for i in range(number_of_states)]
-        self.reduction_rate = {}#[[1, 1, 1] for i in range(number_of_states)]
+        self.time_of_delay = {}
+        self.improvement = {}
+        self.time_of_reduction = {}
+        self.reduction_rate = {}
 
     def _get_effect(self, action):
         left = action[0]
@@ -72,11 +71,8 @@ class ActionEffect():
         return self._get_effect(self.time_of_reduction.get(state,[0,0,0]))
 
     def _set_effect(self, action, effect):
-        # effect = np.array(effect).reshape(self.number_of_states,
-                                          # 3)  # 3 for the triangular distribution
         for i, eff in effect.items():
             try:
-                #action[i] = list(np.float_(eff))
                 action[int(i)] = eff
             except ValueError:
                 continue
