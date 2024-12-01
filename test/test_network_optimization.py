@@ -1,5 +1,5 @@
 import unittest
-import random
+import warnings
 import numpy as np
 
 from ams.optimization.problem import NetworkProblem
@@ -7,6 +7,7 @@ from ams.optimization.multi_objective_optimization import Multi_objective_optimi
 
 class TestNetworkOptimization(unittest.TestCase):
     def setUp(self):
+        warnings.filterwarnings("ignore", category=DeprecationWarning, module='pymoo')
         section_optimization = {
             "section_1": {
                 "Performance": [

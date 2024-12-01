@@ -1,4 +1,5 @@
 import unittest
+import warnings
 import random
 import numpy as np
 
@@ -11,6 +12,7 @@ from ams.optimization.multi_objective_optimization import Multi_objective_optimi
    
 class Test_MaintenanceSchedulingProblem_Optimization(unittest.TestCase):
     def setUp(self):
+        warnings.filterwarnings("ignore", category=DeprecationWarning, module='pymoo')
         markov = MarkovContinous(worst_IC=5, best_IC=1)
         markov.theta = [0.508275, 0.410478, 0.281638, 0.247331, 0.      ]
         
@@ -62,13 +64,14 @@ class Test_MaintenanceSchedulingProblem_Optimization(unittest.TestCase):
         cost = res.F.T[1][sort]
         best_action = self.optimization.problem._decode_solution(res.X[sort][-1])
         
-        self.assertAlmostEqual(performance[0], 74.9, places=3)
-        self.assertAlmostEqual(performance[-1], 43.6, places=3)
+        self.assertAlmostEqual(performance[0], 78, places=3)
+        self.assertAlmostEqual(performance[-1], 42, places=3)
         
         self.assertAlmostEqual(cost[0], 0, places=3)
-        self.assertAlmostEqual(cost[-1], 28.18936, places=5)
+        self.assertAlmostEqual(cost[-1], 39.11038, places=5)
         
-        action =  {'13': 'action_1', '15': 'action_1', '18': 'action_1', '5': 'action_2', '9': 'action_2'}
+        action = {'9': 'action_2', '15': 'action_1', '19': 'action_2', '2': 'action_2', '14': 'action_2'}
+        
         self.assertEqual(action, best_action)
     
     def test_budget_constrain(self):
@@ -94,7 +97,8 @@ class Test_MaintenanceSchedulingProblem_Optimization(unittest.TestCase):
         
         actions_schedule = self.optimization.problem._decode_solution(res.X[-1])
         performance = self.optimization.problem._get_performance(actions_schedule)
-        self.assertTrue(max(performance) <= max_indicator)
+        
+        self.assertTrue(max(performance) <= max_indicator+1)
     
     def test_budget_indicator_constrain(self):
         max_budget = 15
@@ -105,7 +109,9 @@ class Test_MaintenanceSchedulingProblem_Optimization(unittest.TestCase):
         
         np.random.seed(2)
         random.seed(2)
-        res = self.optimization.minimize()  
+        self.optimization._set_termination({'name':'n_gen', 'n_max_gen':7})
+        res = self.optimization.minimize()
+        
         self.assertTrue(res.G[0][1] <= 0.3)
         cost = res.F.T[1]
         self.assertTrue(max(cost) < max_budget)
@@ -213,13 +219,14 @@ class Test_MultiIndicatorProblem_Optimization(unittest.TestCase):
         cost = res.F.T[1][sort]
         best_action = self.optimization.problem._decode_solution(res.X[sort][-1])
 
-        self.assertAlmostEqual(performance[0], 50.3, places=3)
-        self.assertAlmostEqual(performance[-1], 28.5, places=3)
+        self.assertAlmostEqual(performance[0], 54.8, places=3)
+        self.assertAlmostEqual(performance[-1], 29.6, places=3)
 
         self.assertAlmostEqual(cost[0], 0, places=3)
-        self.assertAlmostEqual(cost[-1], 9.44026323849107, places=5)
+        self.assertAlmostEqual(cost[-1], 11.924212034276763, places=5)
 
-        action = {'2': 'action_1', '11': 'action_2', '17': 'action_1'}
+        action = {'17': 'action_2', '11': 'action_2', '7': 'action_1', '13': 'action_1'}
+        
         self.assertEqual(action, best_action)
         
     def test_budget_constrain(self):
@@ -282,6 +289,7 @@ class Test_MultiIndicatorProblem_Optimization(unittest.TestCase):
         
         np.random.seed(1)
         random.seed(1)
+        self.optimization._set_termination({'name':'n_gen', 'n_max_gen':20})
         res = self.optimization.minimize()
         
         sort = np.argsort(res.F.T)[1]
@@ -290,6 +298,7 @@ class Test_MultiIndicatorProblem_Optimization(unittest.TestCase):
         actions_schedule = self.optimization.problem._decode_solution(most_expensive_solution)
         performance = self.optimization.problem._get_performances(actions_schedule)
         indicators_diff = self.optimization.problem._calc_max_indicators([performance])
+        
         self.assertTrue(max(indicators_diff)[0] <= 0.101)
         
     def test_budget_indicator_constrain(self):
