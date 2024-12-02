@@ -20,7 +20,8 @@ class MaintenanceSchedulingProblem(Problem):
     """
 
     def __init__(self, performance_model: Performance, time_horizon: int, initial_IC: Optional[int] = None,
-                 max_actions: int = 5, discount_rate: float = 0.01, number_of_samples: int = 10, **kwargs):
+                 max_actions: int = 5, discount_rate: float = 0.01, number_of_samples: int = 10,
+                 hazards_schedule: Dict = None, **kwargs):
         """
         Initialize the maintenance scheduling problem.
 
@@ -37,6 +38,8 @@ class MaintenanceSchedulingProblem(Problem):
         self.performance_model = performance_model
         self.initial_IC = initial_IC
         self.actions = self.performance_model.action_effects
+
+        self.hazards_schedule = hazards_schedule
         
         self.discount_rate = discount_rate
         self.number_of_samples = number_of_samples
@@ -146,6 +149,7 @@ class MaintenanceSchedulingProblem(Problem):
             time_horizon = self.time_horizon,
             initial_IC = self.initial_IC,
             actions_schedule = action_schedule,
+            hazards_schedule = self.hazards_schedule,
             number_of_samples = self.number_of_samples
         )
 

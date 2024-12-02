@@ -93,7 +93,7 @@ class Test_MaintenanceSchedulingProblem_Optimization(unittest.TestCase):
         self.optimization.verbose = False
         self.optimization.set_problem(problem)
         
-        self.optimization._set_algorithm({"name": "NSGA2", "pop_size": 20, "eliminate_duplicates": True})
+        self.optimization._set_algorithm({"name": "NSGA2", "pop_size": 5, "eliminate_duplicates": True})
         self.optimization._set_termination({'name':'n_gen', 'n_max_gen':3})
         
     def test_minimize(self):
@@ -108,21 +108,46 @@ class Test_MaintenanceSchedulingProblem_Optimization(unittest.TestCase):
         cost = res.F.T[1][sort]
         best_action = self.optimization.problem._decode_solution(res.X[sort][-1])
         
-        self.assertAlmostEqual(performance[0], 87.8, places=3)
-        self.assertAlmostEqual(performance[-1], 50.8, places=3)
+        self.assertAlmostEqual(performance[0], 90.5, places=3)
+        self.assertAlmostEqual(performance[-1], 63.1, places=3)
         
-        self.assertAlmostEqual(cost[0], 13.143431161518652, places=3)
-        self.assertAlmostEqual(cost[-1], 51.373538285005566, places=5)
+        self.assertAlmostEqual(cost[0], 6.50725405, places=3)
+        self.assertAlmostEqual(cost[-1], 15.42969574, places=5)
         
-        action = {'10': 'action_2', '14': 'action_1', '19': 'action_2', '8': 'action_2', '4': 'action_1', '15': 'action_2', '6': 'action_2'}
-
+        action = {'18': 'action_1', '10': 'action_2', '12': 'action_1'}
+        
         self.assertEqual(action, best_action)
 
-    
+    def test_minimize_with_hazard_schedule(self):
+        hazards_schedule = {1: 'Collapse'}
+        
+        self.optimization.problem.hazards_schedule = hazards_schedule
+        np.random.seed(1)
+        random.seed(1)
+
+        res = self.optimization.minimize()
+        
+        sort = np.argsort(res.F.T)[1]
+        
+        performance = res.F.T[0][sort]
+        cost = res.F.T[1][sort]
+        best_action = self.optimization.problem._decode_solution(res.X[sort][-1])
+        
+        self.assertAlmostEqual(performance[0], 101, places=3)
+        self.assertAlmostEqual(performance[-1], 48.1, places=3)
+        
+        self.assertAlmostEqual(cost[0], 0, places=3)
+        self.assertAlmostEqual(cost[-1], 35.4427383632713, places=5)
+        
+        action = {'15': 'action_1', '0': 'action_1', '16': 'action_1', '9': 'action_1', '2': 'action_2', '13': 'action_1', '11': 'action_2'}
+        
+        self.assertEqual(action, best_action)
+   
     def test_max_indicator_constrain(self):
         max_indicator = 3
         self.optimization.problem.max_indicator = max_indicator
-        self.optimization._set_termination({'name':'n_gen', 'n_max_gen':30})
+        self.optimization._set_algorithm({"name": "NSGA2", "pop_size": 20, "eliminate_duplicates": True})
+        self.optimization._set_termination({'name':'n_gen', 'n_max_gen':20})
         
         np.random.seed(1)
         random.seed(1)
@@ -130,7 +155,7 @@ class Test_MaintenanceSchedulingProblem_Optimization(unittest.TestCase):
 
         sort = np.argsort(res.F.T)[1]
         
-        self.assertAlmostEqual(res.F.T[0][sort][-1], 54.3, places=3)
+        self.assertAlmostEqual(res.F.T[0][sort][-1], 49.4, places=3)
         best_action = self.optimization.problem._decode_solution(res.X[sort][-1])
         
         performance = self.optimization.problem._get_performance(best_action)

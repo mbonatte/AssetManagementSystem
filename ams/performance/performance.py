@@ -147,8 +147,8 @@ class Performance():
 
         """
         #hazard
-        hazard = hazards[time]
-        if hazard != 'No Damage':
+        hazard = hazards.get(time, None)
+        if hazard is not None:
             return self.get_degradated_IC(
                 current_state,
                 self.hazard_effects[hazard].get_degradation(current_state)
@@ -217,11 +217,15 @@ class Performance():
             size=time_horizon
         )
 
-        return samples
+        # Create a dictionary for non-"No Damage" entries
+        hazard_dict = {index+1: str(damage) for index, damage in enumerate(samples) if damage != "No Damage"}
+
+        return hazard_dict
     
     def predict_MC(self,
                    time_horizon,
-                   initial_IC):
+                   initial_IC,
+                   hazards_schedule):
         #Time horizon for years [0 + time_horizon]
         time_horizon += 1
 
@@ -232,7 +236,8 @@ class Performance():
         #interventions = [Sample() for _ in range(time_horizon)]
         interventions = {int(year): Sample() for year, action in self.actions_schedule.items()}
 
-        hazards = self.get_hazards(time_horizon)
+        if not hazards_schedule:
+            hazards_schedule = self.get_hazards(time_horizon)
         
         self.last_intervention = {"time": 0,
                                   "duration": 0,
@@ -250,13 +255,14 @@ class Performance():
             asset_condition[time] = self._get_next_IC(asset_condition[time-1],
                                                       interventions,
                                                       time,
-                                                      hazards)
+                                                      hazards_schedule)
         return asset_condition
 
     def get_IC_over_time(self,
                          time_horizon: int,
                          initial_IC: int = None,
                          actions_schedule: Dict = {},
+                         hazards_schedule: Dict = None,
                          number_of_samples:int = 10) -> np.array:
         """
         Get the mean prediction by Monte Carlo approach.
@@ -281,5 +287,5 @@ class Performance():
         
         self._set_actions_schedule(actions_schedule)
         
-        samples = [self.predict_MC(time_horizon,initial_IC) for _ in range(number_of_samples)]
+        samples = [self.predict_MC(time_horizon,initial_IC,hazards_schedule) for _ in range(number_of_samples)]
         return np.mean(samples, axis=0)  # Mean pear year

@@ -80,7 +80,7 @@ class TestPerformance(unittest.TestCase):
     def test_get_hazard(self):
         np.random.seed(1)
         hazards = self.performance.get_hazards(50)
-        self.assertEqual(hazards[13], 'Minor Damage')
+        self.assertEqual(hazards[14], 'Minor Damage')
        
     def test_get_degradated_IC(self):
         self.assertEqual(self.performance.get_degradated_IC(10, 0),
@@ -104,6 +104,20 @@ class TestPerformance(unittest.TestCase):
                                                initial_IC,
                                                actions_schedule=maintenance_scenario,
                                                number_of_samples=10)
+        
+        self.assertEqual(IC[-1], 5)
+
+    def test_get_IC_over_time_with_hazards_schedule(self):
+        time_hoziron = 2
+        initial_IC = 1
+        hazards_schedule = {1: 'Collapse'}
+        
+        random.seed(1)
+        IC = self.performance.get_IC_over_time(time_hoziron,
+                                               initial_IC,
+                                               actions_schedule={},
+                                               hazards_schedule=hazards_schedule,
+                                               number_of_samples=1)
         
         self.assertEqual(IC[-1], 5)
     
