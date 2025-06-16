@@ -68,9 +68,10 @@ class Performance():
         self.Q = self.deterioration_model.intensity_matrix
         self.standard_transition_matrix = expm(self.Q)
         
-        self.last_intervention = {"time": 0,
-                                  "duration": 0,
-                                  "reduction": 1}
+        self.intervertion_active = False
+        self.last_intervention = {"time": 0, "duration": 0, "reduction": 1}
+        self.hazard_active = False
+        self.last_hazard = {"time": 0, "duration": 0, "reduction": 1}
 
     def get_action(self, time) -> List:
         return self.actions_schedule.get(str(time), None)
@@ -79,25 +80,45 @@ class Performance():
         self.actions_schedule = actions_schedule
 
     def get_reduction_factor(self,
-                             sample: dict,
+                             interventions: dict,
                              time: int):
+        # Default: no reduction is active.
         reduction_factor = 1
         
-        for t, s in sample.items():
+        for t, intervention in interventions.items():
             if time < t:
                 continue
-            time_difference = time - t
-            if s.timeOfReduction - time_difference > 0 and s.rateOfReduction < reduction_factor:
-                reduction_factor = s.rateOfReduction
+            time_diff = time - t
+
+            # Reduction window still active – keep the strictest factor.
+            if self.last_intervention['duration'] - time_diff > 0 and intervention.rateOfReduction < reduction_factor:
+                reduction_factor = intervention.rateOfReduction
                 self.last_intervention['reduction'] = reduction_factor
-                
-            if s.timeOfDelay - time_difference > 0:
+                self.intervertion_active = True
+                self.hazard_active = False
+            
+            # Delay/suppression window overrides everything else.
+            if self.last_intervention['duration'] - time_diff > 0 and intervention.timeOfDelay - time_diff > 0:
                 # there is suppression (P - is identity matrix)
                 reduction_factor = 0
                 self.last_intervention['reduction'] = reduction_factor
+                self.intervertion_active = True
+                self.hazard_active = False
                 break
         
         return reduction_factor
+    
+    def get_increase_factor(self, time, hazard, current_state):
+        self.hazard_active = True
+        self.intervertion_active = False
+
+        self.last_hazard.update({
+            "time": time,
+            "duration": hazard.get_time_of_increase(current_state),
+            "reduction": hazard.get_increase_rate(current_state)
+        })
+
+        return hazard.get_increase_rate(current_state)
 
     def _choose_randomly_the_next_IC(self, current_IC, transition_matrix):
         # Calculate the index for the current_IC relative to the best_IC
@@ -121,6 +142,11 @@ class Performance():
         else:
             return max(IC - degradation, self.deterioration_model.worst_IC)
 
+    def compute_modified_transition_matrix(self, reduction_factor):
+        if reduction_factor == 1:
+            return self.standard_transition_matrix
+        return expm(self.Q * reduction_factor)
+    
     def _get_next_IC(self,
                      current_state: int,
                      interventions: dict,
@@ -147,46 +173,52 @@ class Performance():
 
         """
         #hazard
-        hazard = hazards.get(time, None)
-        if hazard is not None:
-            return self.get_degradated_IC(
-                current_state,
-                self.hazard_effects[hazard].get_degradation(current_state)
-                )
+        hazard_key = hazards.get(time)
+        hazard = self.hazard_effects.get(hazard_key) if hazard_key else None
         
-        # ação corretiva
+        # 1. If hazard has degradation, apply it and return (overrides everything)
+        if hazard and hazard.degradation:
+            return self.get_degradated_IC(current_state, hazard.get_degradation(current_state))
+        
+        # 2. Check for intervention improvement (applies only if no hazard)
         if interventions.get(time, None):
+            self.hazard_active = False
             if interventions[time].improvement:
                 return self.get_improved_IC(current_state,
                                             interventions[time].improvement)
-
+        # 3. Set hazard increase rate if present
+        if hazard and hazard.increase_rate:
+            self.get_increase_factor(time, hazard, current_state)
+        
+        # Reset hazard increase rate if its window is over
+        if(self.last_hazard['time']+self.last_hazard['duration'] <= time):
+            self.last_hazard['reduction'] = 1
+            self.hazard_active = False
+        
         # compute rate of reduction
-        reduction_factor = self.get_reduction_factor(
-            interventions, time)
-
+        self.get_reduction_factor(interventions, time)
+        
+        # Reset intervention reduction if its window is over
         if(self.last_intervention['time']+self.last_intervention['duration'] <= time):
             self.last_intervention['reduction'] = 1
-        # print('---')
-        # print('time: ', time)
-        # print(self.last_intervention['reduction'], '||', reduction_factor)
-        # print('---')
-        reduction_factor = self.last_intervention['reduction']
+            self.intervertion_active = False
 
-        if reduction_factor == 0:
+        if self.last_intervention['reduction'] == 0:
             return current_state
+        
+        factor = 1
+        if self.intervertion_active:
+            factor = self.last_intervention['reduction']
+        if self.hazard_active:
+            factor = self.last_hazard['reduction']
 
         # compute transition matrix
-        transition_matrix = self.standard_transition_matrix
-        if reduction_factor != 1:
-            intensity_matrix_reduced = self.Q * reduction_factor
-            transition_matrix = expm(intensity_matrix_reduced)
+        transition_matrix = self.compute_modified_transition_matrix(factor)
 
         # calculate next state
         next_IC = self._choose_randomly_the_next_IC(current_state,
                                                     transition_matrix)
         return next_IC
-        # return max(self.deterioration_model.get_next_IC(current_state),
-        #            current_state)
 
     def set_interventions_effect(self, intervention, action, IC):
         IC_index = int(IC)
@@ -242,6 +274,10 @@ class Performance():
         self.last_intervention = {"time": 0,
                                   "duration": 0,
                                   "reduction": 1}
+        
+        self.last_hazard = {"time": 0,
+                            "duration": 0,
+                            "reduction": 1}
         
         ## Cache the method reference for better performance
         for time in range(1, time_horizon):

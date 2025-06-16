@@ -96,13 +96,13 @@ class HazardEffect:
         self.probability = prob
     
     def set_degradation(self, effect):
-        return self._set_effect(self.degradation, effect)
+        self._set_effect(self.degradation, effect)
 
     def set_increase_rate(self, effect):
-        return self._set_effect(self.increase_rate, effect)
+        self._set_effect(self.increase_rate, effect)
 
     def set_time_of_delay(self, effect):
-        return self._set_effect(self.time_of_delay, effect)
+        self._set_effect(self.time_of_delay, effect)
 
     def set_time_of_increase(self, effect):
-        return self._set_effect(self.time_of_increase, effect)
+        self._set_effect(self.time_of_increase, effect)
