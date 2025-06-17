@@ -109,7 +109,7 @@ class TestPerformance(unittest.TestCase):
     
     def test_get_hazard(self):
         np.random.seed(1)
-        hazards = self.performance.get_hazards(50)
+        hazards = self.performance._sample_hazards(50)
         self.assertEqual(hazards[14], 'Minor Damage')
 
     def test_get_next_IC(self):

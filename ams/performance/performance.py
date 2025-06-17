@@ -5,41 +5,15 @@ Created on Sep 21, 2022.
 @e-mail: mbonatte@ymail.com
 """
 
-from .maintenance import ActionEffect
-from .hazard_effects import HazardEffect
-
 import numpy as np
 from multiprocessing import Pool
 from scipy.linalg import expm
 from random import choices
 from typing import List, Dict
 
-# from numba import jit
-
-# @jit(nopython=True, nogil=True, cache=True)
-# def numba_matrix_power(a, b):
-    # return np.linalg.matrix_power(a, b)
-
-
-# # Create my own 'expm', it's faster than scipy.linalg.expm
-# import math
-# factorials = [1/math.factorial(i) for i in range(15)]
-# def expm(Q):
-    # Q = [numba_matrix_power(Q,i) for i in range(6)]
-    # P = sum(f*q for q,f in zip(Q,factorials))
-    # return P
-
-# # Create my own 'choices', it's faster than random.choices
-# @jit(nopython=True, cache=True)
-# def choices(population, weights):
-    # r = np.random.rand()
-    # for i in range(len(weights)-1):
-        # A = 0
-        # for j in range(i+1):
-            # A += weights[j]
-            # if(r < A):
-                # return population[i]
-    # return population[-1]
+from .maintenance import ActionEffect
+from .hazard_effects import HazardEffect
+from .windows import EffectWindow
 
 class Sample():
     def __init__(self):
@@ -52,61 +26,73 @@ class Sample():
 
 class Performance():
     def __init__(self, deterioration_model, maintenance_actions, hazard_data=None):
+        # — base deterioration model ------------------------------------------------
         self.deterioration_model = deterioration_model
-        self.actions_schedule = {}
-        self.action_effects = ActionEffect.set_action_effects(maintenance_actions)
-
-        if hazard_data:
-            self.hazard_effects = HazardEffect.set_hazard_effects(hazard_data)
-        else:
-            self.hazard_effects = HazardEffect.set_hazard_effects({})
-        
-        self.list_of_possible_ICs = np.linspace(start = self.deterioration_model.best_IC,
-                                                stop = self.deterioration_model.worst_IC,
-                                                num = self.deterioration_model._number_of_states,
-                                                dtype = int)
         self.Q = self.deterioration_model.intensity_matrix
         self.standard_transition_matrix = expm(self.Q)
-        
-        self.intervertion_active = False
-        self.last_intervention = {"time": 0, "duration": 0, "reduction": 1}
-        self.hazard_active = False
-        self.last_hazard = {"time": 0, "duration": 0, "reduction": 1}
 
+        self.list_of_possible_ICs = np.linspace(
+            start=self.deterioration_model.best_IC,
+            stop=self.deterioration_model.worst_IC,
+            num=self.deterioration_model._number_of_states,
+            dtype=int,
+        )
+
+        # — maintenance & hazard effects -------------------------------------------
+        self.action_effects = ActionEffect.set_action_effects(maintenance_actions)
+        self.hazard_effects = HazardEffect.set_hazard_effects(hazard_data or [])
+
+        # schedules & runtime state
+        self.actions_schedule = {}
+        self._active_windows: List[EffectWindow] = []
+
+    def _open_window(self, win: EffectWindow) -> None:
+        """Register a new EffectWindow."""
+        self._active_windows.append(win)
+
+    def _purge_expired(self, t: int) -> None:
+        """Drop windows that ended before time *t*."""
+        self._active_windows = [w for w in self._active_windows if w.is_active(t)]
+
+    def _current_factor(self, t: int) -> float:
+        """
+        Return the factor of the *most-recent* still-alive window.
+
+        We iterate the list in reverse insertion order; the first active match
+        is therefore the latest one opened.
+        """
+        self._purge_expired(t)
+        for w in reversed(self._active_windows):
+            if w.is_active(t):
+                return w.factor
+        return 1.0
+    
     def get_action(self, time) -> List:
         return self.actions_schedule.get(str(time), None)
 
     def _set_actions_schedule(self, actions_schedule: Dict):
         self.actions_schedule = actions_schedule
 
-    def get_reduction_factor(self,
-                             interventions: dict,
-                             time: int):
-        # Default: no reduction is active.
-        reduction_factor = 1
-        
-        for t, intervention in interventions.items():
-            if time < t:
+    def get_reduction_factor(self, interventions: dict, time: int) -> float:
+        """
+        Simple, stateless computation that matches the unit-test expectations
+        :contentReference[oaicite:0]{index=0}.
+        """
+        factor = 1.0
+        for t, interv in interventions.items():
+            if t > time:
                 continue
-            time_diff = time - t
+            elapsed = time - t
 
-            # Reduction window still active – keep the strictest factor.
-            if self.last_intervention['duration'] - time_diff > 0 and intervention.rateOfReduction < reduction_factor:
-                reduction_factor = intervention.rateOfReduction
-                self.last_intervention['reduction'] = reduction_factor
-                self.intervertion_active = True
-                self.hazard_active = False
-            
-            # Delay/suppression window overrides everything else.
-            if self.last_intervention['duration'] - time_diff > 0 and intervention.timeOfDelay - time_diff > 0:
-                # there is suppression (P - is identity matrix)
-                reduction_factor = 0
-                self.last_intervention['reduction'] = reduction_factor
-                self.intervertion_active = True
-                self.hazard_active = False
-                break
-        
-        return reduction_factor
+            # suppression window (delay) dominates
+            if elapsed < interv.timeOfDelay:
+                return 0.0
+
+            # reduction window – keep the strictest (lowest) factor
+            if elapsed < interv.timeOfReduction:
+                factor = min(factor, interv.rateOfReduction)
+
+        return factor
     
     def get_increase_factor(self, time, hazard, current_state):
         self.hazard_active = True
@@ -147,6 +133,45 @@ class Performance():
             return self.standard_transition_matrix
         return expm(self.Q * reduction_factor)
     
+    def _schedule_action(self, start: int, interv: Sample) -> None:
+        """
+        Convert *interv* into EffectWindow objects **and** discard any action
+        windows that were opened by older maintenance actions.
+
+        This matches the legacy behaviour where the dictionaries
+        `self.last_intervention/*` always held *only* the most-recent action.
+        """
+        # ❶ remove windows generated by earlier actions
+        self._active_windows = [
+            w for w in self._active_windows if w.priority != 1
+        ]
+
+        # ❷ (re)insert suppression / reduction windows for the *current* action
+        if interv.timeOfDelay:
+            self._open_window(EffectWindow(start, interv.timeOfDelay, 0.0))
+
+        if (
+            interv.timeOfReduction
+            and interv.rateOfReduction < 1.0
+        ):
+            self._open_window(
+                EffectWindow(
+                    start + interv.timeOfDelay,
+                    interv.timeOfReduction,
+                    interv.rateOfReduction,
+                )
+            )
+    
+    def _schedule_hazard(
+        self, start: int, hazard: HazardEffect, state: int
+    ) -> None:
+        if not hazard.increase_rate:
+            return
+        dur = hazard.get_time_of_increase(state)
+        fac = hazard.get_increase_rate(state)
+        if dur and fac > 1.0:
+            self._open_window(EffectWindow(start, dur, fac))
+
     def _get_next_IC(self,
                      current_state: int,
                      interventions: dict,
@@ -173,44 +198,25 @@ class Performance():
 
         """
         #hazard
-        hazard_key = hazards.get(time)
-        hazard = self.hazard_effects.get(hazard_key) if hazard_key else None
+        hazard_name = hazards.get(time)
+        hazard = self.hazard_effects.get(hazard_name)
         
-        # 1. If hazard has degradation, apply it and return (overrides everything)
         if hazard and hazard.degradation:
             return self.get_degradated_IC(current_state, hazard.get_degradation(current_state))
         
-        # 2. Check for intervention improvement (applies only if no hazard)
-        if interventions.get(time, None):
-            self.hazard_active = False
-            if interventions[time].improvement:
-                return self.get_improved_IC(current_state,
-                                            interventions[time].improvement)
-        # 3. Set hazard increase rate if present
+        interv = interventions.get(time)
+        if interv and interv.improvement:
+            return self.get_improved_IC(current_state, interv.improvement)
+        
+        
+        if interv:
+            self._schedule_action(time, interv)
         if hazard and hazard.increase_rate:
-            self.get_increase_factor(time, hazard, current_state)
+            self._schedule_hazard(time, hazard, current_state)
         
-        # Reset hazard increase rate if its window is over
-        if(self.last_hazard['time']+self.last_hazard['duration'] <= time):
-            self.last_hazard['reduction'] = 1
-            self.hazard_active = False
-        
-        # compute rate of reduction
-        self.get_reduction_factor(interventions, time)
-        
-        # Reset intervention reduction if its window is over
-        if(self.last_intervention['time']+self.last_intervention['duration'] <= time):
-            self.last_intervention['reduction'] = 1
-            self.intervertion_active = False
-
-        if self.last_intervention['reduction'] == 0:
+        factor = self._current_factor(time)
+        if factor == 0.0:                 # suppression
             return current_state
-        
-        factor = 1
-        if self.intervertion_active:
-            factor = self.last_intervention['reduction']
-        if self.hazard_active:
-            factor = self.last_hazard['reduction']
 
         # compute transition matrix
         transition_matrix = self.compute_modified_transition_matrix(factor)
@@ -220,84 +226,72 @@ class Performance():
                                                     transition_matrix)
         return next_IC
 
-    def set_interventions_effect(self, intervention, action, IC):
-        IC_index = int(IC)
-        
-        intervention.timeOfDelay = action.get_time_of_delay(IC_index)
-        intervention.improvement = action.get_improvement(IC_index)
-        intervention.timeOfReduction = action.get_time_of_reduction(IC_index)
-        intervention.rateOfReduction = action.get_reduction_rate(IC_index)
-        
-        self.last_intervention['duration'] = max(intervention.timeOfDelay,
-                                                 intervention.timeOfReduction)
-        self.last_intervention['reduction'] = 1
+    def set_interventions_effect(
+        self,
+        intervention: Sample,
+        action: ActionEffect,
+        IC: int,
+        start_time: int | None = None,
+    ) -> None:
+        """Populate *intervention* fields and open its windows (if start_time)."""
+        s = int(IC)
+        intervention.timeOfDelay = action.get_time_of_delay(s)
+        intervention.improvement = action.get_improvement(s)
+        intervention.timeOfReduction = action.get_time_of_reduction(s)
+        intervention.rateOfReduction = action.get_reduction_rate(s)
 
-   
-    def get_hazards(self, time_horizon):
-        hazard_data = {
-            "Damage": list(self.hazard_effects.keys()),
-            "Probability": [self.hazard_effects[effect].probability for effect in self.hazard_effects],
-        }
-
-        # Normalize probabilities
-        hazard_data['Probability'] = np.array(hazard_data['Probability']) / sum(hazard_data['Probability'])
-
-        # Perform random sampling
-        samples = np.random.choice(
-            hazard_data['Damage'],
-            p=hazard_data['Probability'],
-            size=time_horizon
-        )
-
-        # Create a dictionary for non-"No Damage" entries
-        hazard_dict = {index+1: str(damage) for index, damage in enumerate(samples) if damage != "No Damage"}
-
-        return hazard_dict
+        if start_time is not None:
+            self._schedule_action(start_time, intervention)
+  
+    def _sample_hazards(self, horizon: int) -> Dict[int, str]:
+        """Draws a synthetic hazards schedule of length *horizon*."""
+        damages = list(self.hazard_effects.keys())
+        probs = np.array([self.hazard_effects[d].probability for d in damages], dtype=float)
+        probs /= probs.sum()
+        samples = np.random.choice(damages, p=probs, size=horizon)
+        return {i + 1: d for i, d in enumerate(samples) if d != "No Damage"}
     
-    def predict_MC(self,
-                   time_horizon,
-                   initial_IC,
-                   hazards_schedule):
+    def predict_MC(
+            self,
+            time_horizon: int,
+            initial_IC: int,
+            hazards_schedule: Dict[int, str] = None,
+        ) -> np.ndarray:
+        self._active_windows = []
+
         #Time horizon for years [0 + time_horizon]
         time_horizon += 1
-
         asset_condition = np.empty(time_horizon, dtype=int)
         asset_condition[0] = initial_IC
         
-        # I still need to get rid off the ´Sample´ class
-        #interventions = [Sample() for _ in range(time_horizon)]
-        interventions = {int(year): Sample() for year, action in self.actions_schedule.items()}
+        if hazards_schedule is None:
+            hazards_schedule = self._sample_hazards(time_horizon)
 
-        if not hazards_schedule:
-            hazards_schedule = self.get_hazards(time_horizon)
-        
-        self.last_intervention = {"time": 0,
-                                  "duration": 0,
-                                  "reduction": 1}
-        
-        self.last_hazard = {"time": 0,
-                            "duration": 0,
-                            "reduction": 1}
+        interventions = {
+            int(year): Sample()
+            for year in self.actions_schedule
+        }
         
         ## Cache the method reference for better performance
         for time in range(1, time_horizon):
-            action = self.get_action(time)
-            if self.action_effects.get(action, None):
-                self.last_intervention['time'] = time
-                self.set_interventions_effect(interventions[time],
-                                              self.action_effects[action],
-                                              asset_condition[time-1])
+            action_name = self.get_action(time)
+            if action_name and action_name in self.action_effects:
+                self.set_interventions_effect(
+                    interventions[time],
+                    self.action_effects[action_name],
+                    asset_condition[time-1],
+                    start_time=time,
+                )
             
-            asset_condition[time] = self._get_next_IC(asset_condition[time-1],
-                                                      interventions,
-                                                      time,
-                                                      hazards_schedule)
+            asset_condition[time] = self._get_next_IC(
+                asset_condition[time-1], interventions, time, hazards_schedule
+            )
         return asset_condition
 
     def get_IC_over_time(self,
                          time_horizon: int,
                          initial_IC: int = None,
-                         actions_schedule: Dict = {},
+                         actions_schedule: Dict = None,
                          hazards_schedule: Dict = None,
                          number_of_samples:int = 10) -> np.array:
         """
@@ -318,10 +312,13 @@ class Performance():
             Mean performance over time.
 
         """
-        if not initial_IC: #if initial_IC is None:
+        if initial_IC is None:
             initial_IC = self.deterioration_model.best_IC
         
-        self._set_actions_schedule(actions_schedule)
+        self._set_actions_schedule(actions_schedule or {})
         
-        samples = [self.predict_MC(time_horizon,initial_IC,hazards_schedule) for _ in range(number_of_samples)]
+        samples = [
+            self.predict_MC(time_horizon,initial_IC,hazards_schedule)
+            for _ in range(number_of_samples)
+        ]
         return np.mean(samples, axis=0)  # Mean pear year

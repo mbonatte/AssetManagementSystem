@@ -10,7 +10,9 @@ hazard.py - Classes for hazard effects.
 from typing import Dict
 import numpy as np
 
-class HazardEffect:
+from .effect_base import EffectBase
+
+class HazardEffect(EffectBase):
     """Class for effects of hazards."""
 
     def set_hazard_effects(hazards: list) -> dict:
@@ -34,16 +36,10 @@ class HazardEffect:
             effect = HazardEffect(hazard['name'])
             
             # Set properties based on keys in the hazard dictionary
-            for key in ['delay', 'degradation', 'time_of_increase', 'increase_rate', 'probability']:
+            for key in ['degradation', 'time_of_increase', 'increase_rate', 'probability']:
                 if key in hazard:
-                    if key == 'delay':
-                        effect.set_time_of_delay(hazard[key])
-                    if key == 'degradation':
-                        effect.set_degradation(hazard[key])
-                    if key == 'time_of_increase':
-                        effect.set_time_of_increase(hazard[key])
-                    if key == 'increase_rate':
-                        effect.set_increase_rate(hazard[key])
+                    if key != 'probability':
+                        effect.set(key, hazard[key])
                     if key == 'probability':
                         effect.set_probability(hazard[key])
             
@@ -52,57 +48,24 @@ class HazardEffect:
 
         return effects
 
+    _FIELDS = [
+        "degradation",
+        "increase_rate",
+        "time_of_increase"
+    ]
+    
     def __init__(self, name: str) -> None:
         """Initialize HazardEffect."""
-        
-        self.name = name
-        self.probability = 0
-        
-        # Effects modeled as triangular distribution
-        self.time_of_delay = {}
-        self.degradation = {}
-        self.time_of_increase = {}
-        self.increase_rate = {}
+        super().__init__(name)
+        self.probability: float = 0.0
 
-    def _get_effect(self, action):
-        left = action[0]
-        mode = action[1]
-        right = action[2]
-        try:
-            return np.random.triangular(left, mode, right)
-        except ValueError:
-            return mode
+    def get_degradation(self, state):       return self.get("degradation", state, [0,0,0])
+    def get_increase_rate(self, state):     return self.get("increase_rate", state, [1, 1, 1])
+    def get_time_of_increase(self, state):  return self.get("time_of_increase", state, [0,0,0])
 
-    def get_degradation(self, state):
-        return self._get_effect(self.degradation.get(state, [0, 0, 0]))
-
-    def get_increase_rate(self, state):
-        return self._get_effect(self.increase_rate.get(state, [1, 1, 1]))
-
-    def get_time_of_delay(self, state):
-        return self._get_effect(self.time_of_delay.get(state, [0, 0, 0]))
-
-    def get_time_of_increase(self, state):
-        return self._get_effect(self.time_of_increase.get(state, [0, 0, 0]))
-
-    def _set_effect(self, action, effect):
-        for i, eff in effect.items():
-            try:
-                action[int(i)] = eff
-            except ValueError:
-                continue
+    def set_degradation(self, eff): self.set("degradation", eff)
+    def set_increase_rate(self, eff): self.set("increase_rate", eff)
+    def set_time_of_increase(self, eff): self.set("time_of_increase", eff)
 
     def set_probability(self, prob):
         self.probability = prob
-    
-    def set_degradation(self, effect):
-        self._set_effect(self.degradation, effect)
-
-    def set_increase_rate(self, effect):
-        self._set_effect(self.increase_rate, effect)
-
-    def set_time_of_delay(self, effect):
-        self._set_effect(self.time_of_delay, effect)
-
-    def set_time_of_increase(self, effect):
-        self._set_effect(self.time_of_increase, effect)
